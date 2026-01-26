@@ -1,7 +1,6 @@
 namespace rknn;
 
 file_identifier 'RKNN';
-root_type Model;
 
 table Model {
     var1: int;
@@ -77,3 +76,4 @@ table Type3 {
     var1: int;
 }
 
+root_type Model;
