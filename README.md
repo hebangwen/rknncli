@@ -1,90 +1,51 @@
-# RKNN CLI Tool
+# RKNN CLI
 
-A command-line tool for analyzing and visualizing RKNN (Rockchip Neural Network) model files.
+A command line tool for parsing and displaying RKNN model information.
 
 ## Installation
 
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Install in development mode
 pip install -e .
 ```
 
 ## Usage
 
-### Show Model I/O Information
-
 ```bash
-rknncli -io model.rknn
+rknncli <path-to-rknn-model>
 ```
 
-This displays:
-- File size
-- Model metadata
-- Input/output tensor information
-- Detected operation strings in the model
-
-### Generate Visualization
+Example:
 
 ```bash
-rknncli --draw model.rknn
+rknncli assets/yolov5s-640-640.rknn
 ```
 
-This creates an SVG visualization of the model graph showing:
-- Input/output nodes
-- Operation nodes (color-coded by type)
-- Connections between operations
+## Output Format
 
-You can specify a custom output path:
-```bash
-rknncli --draw model.rknn -o visualization.svg
+The tool prints model information in the following format:
+
 ```
+Model: rknn model
+Version: 1.6.2-source_code
+Target Platform: rk3588
 
-## Example Output
+Input information
+--------------------------------------------------------------------------------
+  ValueInfo "images": type INT8, shape ['batch', 3, 'height', 'width'],
 
-```bash
-$ rknncli -io assets/base-encoder.rknn
-Model: base-encoder.rknn
-File size: 54,492,267 bytes
-
-Input/Output Information:
-{
-  "inputs": [],
-  "outputs": [],
-  "tensors": [...]
-}
-
-$ rknncli --draw assets/base-encoder.rknn
-Visualization saved to: base-encoder.svg
-Found 863 nodes in the model
-Node type summary:
-  - Add: 167
-  - Mul: 316
-  - MatMul: 276
-  - Reshape: 104
+Output information
+--------------------------------------------------------------------------------
+  ValueInfo "output0": type INT8, shape ['batch', 255, 80, 80],
+  ValueInfo "286": type INT8, shape ['batch', 255, 40, 40],
+  ValueInfo "288": type INT8, shape ['batch', 255, 20, 20'],
 ```
 
 ## Development
 
-The project structure:
-```
-rknncli/
-├── rknncli/
-│   ├── __init__.py
-│   ├── cli.py          # Command-line interface
-│   ├── parser.py       # RKNN file parser
-│   └── visualizer.py   # Graphviz visualization
-├── tests/              # Test directory
-├── src/
-│   └── rknn.fbs       # FlatBuffers schema (reference)
-└── assets/
-    └── base-encoder.rknn  # Example model
-```
+```bash
+# Install in development mode
+pip install -e .
 
-## Dependencies
-
-- flatbuffers: For parsing RKNN binary format
-- graphviz: For creating visualizations
-- click: For command-line interface
+# Run the CLI
+python -m rknncli.cli assets/yolov5s-640-640.rknn
+```

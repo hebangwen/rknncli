@@ -1,175 +1,119 @@
-import struct
+"""RKNN file parser."""
+
 import json
-import re
+import struct
 from pathlib import Path
-from typing import List, Dict, Optional, Union
-
-
-class Tensor:
-    """Represents a tensor in the RKNN model."""
-    def __init__(self, name: str, shape: List[int], dtype: str):
-        self.name = name
-        self.shape = shape
-        self.dtype = dtype
-
-    def __repr__(self):
-        return f'Tensor(name="{self.name}", shape={self.shape}, dtype="{self.dtype}")'
-
-
-class Model:
-    """Represents a parsed RKNN model."""
-    def __init__(self):
-        self.inputs: List[Tensor] = []
-        self.outputs: List[Tensor] = []
-        self.graphs: List = []
-
-    def add_input(self, tensor: Tensor):
-        self.inputs.append(tensor)
-
-    def add_output(self, tensor: Tensor):
-        self.outputs.append(tensor)
+from typing import Any
 
 
 class RKNNParser:
     """Parser for RKNN model files."""
 
-    # Data type mapping from Netron
-    DATA_TYPES = [
-        'undefined', 'float32', 'uint8', 'int8', 'uint16', 'int16',
-        'int32', 'int64', 'string', 'boolean', 'float16', 'float64',
-        'uint32', 'uint64', 'complex<float32>', 'complex<float64>', 'bfloat16'
-    ]
+    HEADER_SIZE = 72
+    MAGIC_NUMBER = b"RKNN"
 
-    # File signatures
-    RKNN_SIGNATURE = b'RKNN'
-    OPENVX_SIGNATURE = b'VPMN'
+    def __init__(self, file_path: str | Path):
+        """Initialize parser with RKNN file path.
 
-    def __init__(self):
-        self.model = Model()
+        Args:
+            file_path: Path to the RKNN model file.
+        """
+        self.file_path = Path(file_path)
+        self.header: dict[str, Any] = {}
+        self.model_info: dict[str, Any] = {}
+        self._parse()
 
-    def detect_format(self, data: bytes) -> str:
-        """Detect the format of the RKNN file."""
-        if len(data) < 8:
-            return 'unknown'
+    def _parse(self) -> None:
+        """Parse the RKNN file."""
+        with open(self.file_path, "rb") as f:
+            # Read header (72 bytes)
+            header_data = f.read(self.HEADER_SIZE)
+            if len(header_data) < self.HEADER_SIZE:
+                raise ValueError(f"File too small: {self.file_path}")
 
-        # Check for RKNN signature at position 0 or 4
-        if data[0:4] == self.RKNN_SIGNATURE:
-            return 'rknn'
-        elif data[4:8] == self.RKNN_SIGNATURE:
-            return 'flatbuffers'
-        elif data[0:4] == self.OPENVX_SIGNATURE:
-            return 'openvx'
+            # Parse header
+            # Bytes 0-3: Magic number "RKNN"
+            magic = header_data[0:4]
+            if magic != self.MAGIC_NUMBER:
+                raise ValueError(f"Invalid magic number: {magic!r}, expected {self.MAGIC_NUMBER!r}")
 
-        # Try to parse as JSON
-        try:
-            json.loads(data.decode('utf-8'))
-            return 'json'
-        except:
-            pass
+            # Bytes 4-7: Padding (4 bytes, zeros)
+            padding = header_data[4:8]
 
-        return 'unknown'
+            # Bytes 8-15: File format version (8 bytes, little-endian uint64)
+            file_format = struct.unpack("<Q", header_data[8:16])[0]
 
-    def parse(self, filepath: Union[str, Path]) -> Model:
-        """Parse an RKNN model file."""
-        filepath = Path(filepath)
+            # Bytes 16-23: File length (8 bytes, little-endian uint64)
+            file_length = struct.unpack("<Q", header_data[16:24])[0]
 
-        with open(filepath, 'rb') as f:
-            data = f.read()
+            self.header = {
+                "magic": magic,
+                "padding": padding,
+                "file_format": file_format,
+                "file_length": file_length,
+            }
 
-        format_type = self.detect_format(data)
+            # Calculate JSON offset and size
+            json_offset = self.HEADER_SIZE + file_length
+            file_size = self.file_path.stat().st_size
+            json_size = file_size - json_offset
 
-        if format_type == 'flatbuffers' or format_type == 'rknn':
-            return self._parse_rknn_binary(data)
-        elif format_type == 'json':
-            return self._parse_json(data)
-        else:
-            raise ValueError(f"Unknown or unsupported RKNN format: {format_type}")
+            if json_size <= 0:
+                raise ValueError(f"Invalid JSON section size: {json_size}")
 
-    def _parse_rknn_binary(self, data: bytes) -> Model:
-        """Parse RKNN binary format by extracting embedded information."""
-        # Convert to text and search for tensor information
-        text = data.decode('utf-8', errors='ignore')
+            # Read JSON model info
+            f.seek(json_offset)
+            json_data = f.read(json_size)
 
-        # Look for output tensors (cross_k_* and cross_v_*)
-        output_pattern = re.compile(r'"(cross_[kv]_\d+)"\s*:\s*\{[^}]*"dtype"\s*:\s*"([^"]+)"[^}]*"layout"\s*:\s*"([^"]+)"')
-        output_matches = output_pattern.findall(text)
+            try:
+                self.model_info = json.loads(json_data.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                raise ValueError(f"Failed to parse model info JSON: {e}")
 
-        for name, dtype, layout in output_matches:
-            # Create tensor with default shape (we'll try to find actual shape)
-            tensor = Tensor(name, [1, 1500, 512], dtype)  # Default shape from pattern
-            self.model.add_output(tensor)
+    def get_input_info(self) -> list[dict[str, Any]]:
+        """Get model input information.
 
-        # Look for input tensors
-        input_pattern = re.compile(r'"(tempMC\d+_input)"\s*:\s*\{[^}]*"dtype"\s*:\s*"([^"]+)"[^}]*"shape"\s*:\s*\[([^\]]+)\]')
-        input_matches = input_pattern.findall(text)
+        Returns:
+            List of input tensor information.
+        """
+        inputs = []
+        norm_tensors = {t["tensor_id"]: t for t in self.model_info.get("norm_tensor", [])}
 
-        for name, dtype, shape_str in input_matches:
-            # Parse shape
-            shape = [int(x.strip()) for x in shape_str.split(',') if x.strip().isdigit()]
-            tensor = Tensor(name, shape, dtype)
-            self.model.add_input(tensor)
+        # Find input tensors from graph connections
+        for conn in self.model_info.get("graph", []):
+            if conn.get("left") == "input":
+                tensor_id = conn.get("right_tensor_id")
+                if tensor_id in norm_tensors:
+                    inputs.append(norm_tensors[tensor_id])
 
-        # If we didn't find inputs with the specific pattern, look for any tensor with shape
-        if not self.model.inputs:
-            shape_pattern = re.compile(r'"shape"\s*:\s*\[([0-9,\s]+)\]')
-            name_pattern = re.compile(r'"([^"]+)"\s*:\s*\{[^}]*"shape"')
+        return inputs
 
-            # Find all shapes
-            shape_matches = list(shape_pattern.finditer(text))
-            name_matches = list(name_pattern.finditer(text))
+    def get_output_info(self) -> list[dict[str, Any]]:
+        """Get model output information.
 
-            # Match names with shapes
-            for i, (name_match, shape_match) in enumerate(zip(name_matches, shape_matches)):
-                name = name_match.group(1)
-                shape_str = shape_match.group(1)
-                shape = [int(x.strip()) for x in shape_str.split(',') if x.strip().isdigit()]
+        Returns:
+            List of output tensor information.
+        """
+        outputs = []
+        norm_tensors = {t["tensor_id"]: t for t in self.model_info.get("norm_tensor", [])}
 
-                # Skip if it's an output tensor we already found
-                if any(name in out.name for out in self.model.outputs):
-                    continue
+        # Find output tensors from graph connections
+        for conn in self.model_info.get("graph", []):
+            if conn.get("left") == "output":
+                tensor_id = conn.get("right_tensor_id")
+                if tensor_id in norm_tensors:
+                    outputs.append(norm_tensors[tensor_id])
 
-                # Default to float32 if not specified
-                tensor = Tensor(name, shape, 'float32')
-                self.model.add_input(tensor)
+        return outputs
 
-        # If we still don't have inputs, add a default one based on common patterns
-        if not self.model.inputs:
-            # Common input pattern for encoder models
-            default_input = Tensor('input', [1, 80, 3000], 'float32')  # Mel spectrogram input
-            self.model.add_input(default_input)
+    def get_model_name(self) -> str:
+        """Get model name."""
+        return self.model_info.get("name", "Unknown")
 
-        return self.model
+    def get_version(self) -> str:
+        """Get model version."""
+        return self.model_info.get("version", "Unknown")
 
-    def _parse_json(self, data: bytes) -> Model:
-        """Parse JSON format RKNN file."""
-        model_json = json.loads(data.decode('utf-8'))
-
-        # Extract tensors based on Netron's JSON parsing logic
-        if 'tensors' in model_json:
-            for tensor_data in model_json['tensors']:
-                tensor = self._tensor_from_json(tensor_data)
-                if tensor_data.get('category') == 'input':
-                    self.model.add_input(tensor)
-                elif tensor_data.get('category') == 'output':
-                    self.model.add_output(tensor)
-
-        return self.model
-
-    def _tensor_from_json(self, tensor_data: Dict) -> Tensor:
-        """Create Tensor from JSON data."""
-        name = tensor_data.get('name', 'unknown')
-        shape = tensor_data.get('shape', [])
-        dtype = tensor_data.get('data_type', 'undefined')
-
-        # Convert shape to list of integers
-        if isinstance(shape, str):
-            shape = [int(dim) for dim in shape.split(',') if dim]
-
-        return Tensor(name, shape, dtype)
-
-
-# Convenience function
-def parse_rknn(filepath: Union[str, Path]) -> Model:
-    """Parse an RKNN model file and return the model."""
-    parser = RKNNParser()
-    return parser.parse(filepath)
+    def get_target_platform(self) -> list[str]:
+        """Get target platform."""
+        return self.model_info.get("target_platform", [])
