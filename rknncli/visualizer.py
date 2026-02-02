@@ -1,80 +1,90 @@
-"""RKNN model visualization using Graphviz."""
-
+import os
+import subprocess
 from pathlib import Path
-from typing import Dict, Any, List
-from graphviz import Digraph
+from typing import Optional, Union
+
+import graphviz
+
+from .parser import Model, Tensor
 
 
-class RKNNVisualizer:
-    """Visualizer for RKNN models."""
+class ModelVisualizer:
+    """Generate Graphviz visualizations of RKNN models."""
 
-    def __init__(self):
-        self.dot = Digraph(format='svg')
-        self.dot.attr(rankdir='TB', size='12,8')
-        self.dot.attr('node', shape='box', style='rounded,filled', fontname='Arial')
+    def __init__(self, model: Model):
+        self.model = model
 
-    def add_nodes(self, nodes: List[Dict[str, Any]]):
-        """Add nodes to the graph."""
-        for node in nodes:
-            # Color nodes based on type
-            color = self._get_node_color(node.get('type', 'Unknown'))
-            self.dot.node(
-                node['id'],
-                node['label'],
-                fillcolor=color
-            )
+    def to_dot(self) -> str:
+        """Convert the model to DOT format."""
+        dot = graphviz.Digraph(comment='RKNN Model')
+        dot.attr(rankdir='TB', bgcolor='white')
+        dot.attr('node', shape='box', style='rounded,filled', fontname='Arial')
 
-    def add_edges(self, edges: List[Dict[str, Any]]):
-        """Add edges to the graph."""
-        for edge in edges:
-            self.dot.edge(edge['from'], edge['to'])
+        # Create subgraph for inputs
+        with dot.subgraph(name='cluster_inputs') as c:
+            c.attr(label='Inputs', style='rounded,filled', fillcolor='lightblue', fontname='Arial Bold')
+            for i, tensor in enumerate(self.model.inputs):
+                node_id = f'input_{i}'
+                label = self._format_tensor_label(tensor)
+                c.node(node_id, label, fillcolor='lightcyan')
 
-    def _get_node_color(self, node_type: str) -> str:
-        """Get color for node based on type."""
-        color_map = {
-            'Conv2D': 'lightblue',
-            'Relu': 'lightgreen',
-            'MaxPool': 'orange',
-            'Add': 'yellow',
-            'Mul': 'pink',
-            'MatMul': 'cyan',
-            'Softmax': 'red',
-            'Reshape': 'gray',
-            'Input': 'darkgreen',
-            'Output': 'darkred'
-        }
-        return color_map.get(node_type, 'white')
+        # Create subgraph for outputs
+        with dot.subgraph(name='cluster_outputs') as c:
+            c.attr(label='Outputs', style='rounded,filled', fillcolor='lightgreen', fontname='Arial Bold')
+            for i, tensor in enumerate(self.model.outputs):
+                node_id = f'output_{i}'
+                label = self._format_tensor_label(tensor)
+                c.node(node_id, label, fillcolor='palegreen')
 
-    def render(self, output_path: Path) -> Path:
-        """Render the graph to SVG file."""
-        output_file = self.dot.render(str(output_path), cleanup=True)
-        return Path(output_file)
+        # Connect inputs to outputs (simplified - real implementation would trace through graph)
+        for i, input_tensor in enumerate(self.model.inputs):
+            for j, output_tensor in enumerate(self.model.outputs):
+                dot.edge(f'input_{i}', f'output_{j}', style='dashed', color='gray')
 
-    def create_graph_from_info(self, graph_info: Dict[str, Any]):
-        """Create graph from parsed model info."""
-        # Add input node
-        self.dot.node('input', 'Input', fillcolor='darkgreen', shape='ellipse')
+        return dot.source
 
-        # Add operation nodes
-        self.add_nodes(graph_info.get('nodes', []))
+    def _format_tensor_label(self, tensor: Tensor) -> str:
+        """Format a tensor as a DOT node label."""
+        shape_str = ' × '.join(str(dim) for dim in tensor.shape) if tensor.shape else 'scalar'
+        return f"{tensor.name}\\n{shape_str}\\n{tensor.dtype}"
 
-        # Add output node
-        self.dot.node('output', 'Output', fillcolor='darkred', shape='ellipse')
+    def save_svg(self, output_path: Union[str, Path], format: str = 'svg') -> Path:
+        """Save the visualization as an SVG file."""
+        output_path = Path(output_path)
 
-        # Create edges (simplified - connect sequentially)
-        nodes = graph_info.get('nodes', [])
-        if nodes:
-            # Connect input to first node
-            self.dot.edge('input', nodes[0]['id'])
+        # Create the graph
+        dot = self.to_dot()
 
-            # Connect nodes sequentially
-            for i in range(len(nodes) - 1):
-                self.dot.edge(nodes[i]['id'], nodes[i + 1]['id'])
+        # Render to file
+        try:
+            # Use graphviz to render
+            gv = graphviz.Source(dot)
+            rendered_path = gv.render(filename=output_path.stem, directory=output_path.parent, format=format, cleanup=True)
+            return Path(rendered_path)
+        except Exception as e:
+            # Fallback: try to use dot command directly
+            try:
+                dot_file = output_path.with_suffix('.dot')
+                with open(dot_file, 'w') as f:
+                    f.write(dot)
 
-            # Connect last node to output
-            self.dot.edge(nodes[-1]['id'], 'output')
+                result = subprocess.run(
+                    ['dot', '-T' + format, str(dot_file), '-o', str(output_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
 
-    def save_svg(self, output_path: Path, graph_info: Dict[str, Any]) -> Path:
-        """Create and save visualization as SVG."""
-        self.create_graph_from_info(graph_info)
-        return self.render(output_path)
+                # Clean up dot file
+                if dot_file.exists():
+                    dot_file.unlink()
+
+                return output_path
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                raise RuntimeError(f"Failed to generate visualization: {e}")
+
+
+def visualize_model(model: Model, output_path: Union[str, Path], format: str = 'svg') -> Path:
+    """Convenience function to visualize a model."""
+    visualizer = ModelVisualizer(model)
+    return visualizer.save_svg(output_path, format)
