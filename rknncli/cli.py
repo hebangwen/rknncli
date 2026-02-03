@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from rknncli.parser import RKNNParser
+from rknncli.fb_parser import RKNNFlatBuffersParser
 
 
 def format_shape(size: list) -> list:
@@ -39,7 +40,7 @@ def get_dtype_str(dtype_info: dict) -> str:
     return "FLOAT"
 
 
-def print_input_info(parser: RKNNParser) -> None:
+def print_input_info(parser) -> None:
     """Print input tensor information.
 
     Args:
@@ -60,7 +61,7 @@ def print_input_info(parser: RKNNParser) -> None:
         print(f'  ValueInfo "{name}": type {dtype}, shape {shape_str},')
 
 
-def print_output_info(parser: RKNNParser) -> None:
+def print_output_info(parser) -> None:
     """Print output tensor information.
 
     Args:
@@ -81,7 +82,7 @@ def print_output_info(parser: RKNNParser) -> None:
         print(f'  ValueInfo "{name}": type {dtype}, shape {shape_str},')
 
 
-def print_model_summary(parser: RKNNParser) -> None:
+def print_model_summary(parser) -> None:
     """Print model summary information.
 
     Args:
@@ -92,6 +93,57 @@ def print_model_summary(parser: RKNNParser) -> None:
     platforms = parser.get_target_platform()
     if platforms:
         print(f"Target Platform: {', '.join(platforms)}")
+    print()
+
+
+def print_flatbuffers_info(parser: RKNNFlatBuffersParser) -> None:
+    """Print FlatBuffers model information.
+
+    Args:
+        parser: RKNNFlatBuffersParser instance.
+    """
+    print("FlatBuffers Model Information")
+    print("-" * 80)
+
+    fb_info = parser.get_flatbuffers_info()
+
+    if "format" in fb_info:
+        print(f"Format: {fb_info['format']}")
+    if "generator" in fb_info:
+        print(f"Generator: {fb_info['generator']}")
+    if "compiler" in fb_info:
+        print(f"Compiler: {fb_info['compiler']}")
+    if "runtime" in fb_info:
+        print(f"Runtime: {fb_info['runtime']}")
+    if "source" in fb_info:
+        print(f"Source: {fb_info['source']}")
+
+    print(f"Number of graphs: {fb_info.get('num_graphs', 0)}")
+
+    # Print graph details
+    for i, graph in enumerate(fb_info.get('graphs', [])):
+        print(f"\nGraph {i}:")
+        print(f"  Tensors: {graph['num_tensors']}")
+        print(f"  Nodes: {graph['num_nodes']}")
+        print(f"  Inputs: {graph['num_inputs']}")
+        print(f"  Outputs: {graph['num_outputs']}")
+
+        # Print input/output tensor details
+        if graph['tensors']:
+            inputs = [t for t in graph['tensors'] if t.get('kind', 0) == 1]  # Assuming 1 means input
+            outputs = [t for t in graph['tensors'] if t.get('kind', 0) == 2]  # Assuming 2 means output
+
+            if inputs:
+                print(f"  Input tensors: {len(inputs)}")
+                for t in inputs:
+                    shape_str = str(t['shape']) if t['shape'] else "scalar"
+                    print(f"    - {t['name']}: {shape_str}")
+
+            if outputs:
+                print(f"  Output tensors: {len(outputs)}")
+                for t in outputs:
+                    shape_str = str(t['shape']) if t['shape'] else "scalar"
+                    print(f"    - {t['name']}: {shape_str}")
     print()
 
 
@@ -115,6 +167,16 @@ def main() -> int:
         action="version",
         version="%(prog)s 0.1.0",
     )
+    parser.add_argument(
+        "--fb", "--flatbuffers",
+        action="store_true",
+        help="Use FlatBuffers parser to parse binary model data",
+    )
+    parser.add_argument(
+        "--fb-only",
+        action="store_true",
+        help="Only parse FlatBuffers data (skip JSON parsing)",
+    )
 
     args = parser.parse_args()
 
@@ -128,23 +190,34 @@ def main() -> int:
         return 1
 
     try:
-        rknn_parser = RKNNParser(model_path)
+        if args.fb_only:
+            # Only parse FlatBuffers data
+            rknn_parser = RKNNFlatBuffersParser(model_path)
+            print_flatbuffers_info(rknn_parser)
+            return 0
+        elif args.fb:
+            # Parse both FlatBuffers and JSON data
+            rknn_parser = RKNNFlatBuffersParser(model_path)
+            # Print FlatBuffers info first
+            print_flatbuffers_info(rknn_parser)
+            # Then print JSON model info
+            print_model_summary(rknn_parser)
+            print_input_info(rknn_parser)
+            print()
+            print_output_info(rknn_parser)
+        else:
+            # Default: only parse JSON data
+            rknn_parser = RKNNParser(model_path)
+            print_model_summary(rknn_parser)
+            print_input_info(rknn_parser)
+            print()
+            print_output_info(rknn_parser)
     except ValueError as e:
         print(f"Error: Failed to parse RKNN file: {e}", file=sys.stderr)
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
-
-    # Print model summary
-    print_model_summary(rknn_parser)
-
-    # Print input information
-    print_input_info(rknn_parser)
-    print()
-
-    # Print output information
-    print_output_info(rknn_parser)
 
     return 0
 

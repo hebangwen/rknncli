@@ -117,7 +117,7 @@ class Node(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from rknn.Type3 import Type3
+            from rknncli.schema.rknn.Type3 import Type3
             obj = Type3()
             obj.Init(self._tab.Bytes, x)
             return obj

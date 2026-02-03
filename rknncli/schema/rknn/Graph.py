@@ -35,7 +35,7 @@ class Graph(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from rknn.Tensor import Tensor
+            from rknncli.schema.rknn.Tensor import Tensor
             obj = Tensor()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -60,7 +60,7 @@ class Graph(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from rknn.Node import Node
+            from rknncli.schema.rknn.Node import Node
             obj = Node()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -139,7 +139,7 @@ class Graph(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from rknn.Type2 import Type2
+            from rknncli.schema.rknn.Type2 import Type2
             obj = Type2()
             obj.Init(self._tab.Bytes, x)
             return obj
