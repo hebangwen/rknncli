@@ -50,7 +50,6 @@ def print_merged_model_info(parser: RKNNParser) -> None:
     """
     # Get basic model info from JSON
     print(f"Model: {parser.get_model_name()}")
-    print(f"Version: {parser.get_version()}")
     platforms = parser.get_target_platform()
     if platforms:
         print(f"Target Platform: {', '.join(platforms)}")
@@ -96,17 +95,26 @@ def print_merged_io_info(parser: RKNNParser) -> None:
         shape = format_shape(size)
         shape_str = "[" + ", ".join(f"'{s}'" if isinstance(s, str) else str(s) for s in shape) + "]"
 
-        # Print basic info
-        print(f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str},')
+        # Build the base output string
+        output_parts = [f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str}']
 
-        # Print additional info from FlatBuffers
-        if "layout" in tensor:
-            print(f'    Layout: {tensor["layout"]} (original: {tensor.get("layout_ori", "n/a")})')
+        # Add layout info from FlatBuffers
+        if "layout" in tensor and tensor["layout"]:
+            layout = tensor["layout"].upper()
+            layout_ori = tensor.get("layout_ori", "").upper()
+            if layout_ori and layout_ori != layout:
+                output_parts.append(f"layout {layout}(ori:{layout_ori})")
+            else:
+                output_parts.append(f"layout {layout}")
 
+        # Add quantization info from FlatBuffers
         if "quant_info" in tensor:
             quant = tensor["quant_info"]
             if quant.get("qmethod") or quant.get("qtype"):
-                print(f'    Quantization: {quant["qmethod"]} {quant["qtype"]}')
+                output_parts.append(f"quant {quant['qmethod']} {quant['qtype']}")
+
+        # Print the merged info on one line
+        print(", ".join(output_parts) + ",")
 
     print()
 
@@ -128,17 +136,26 @@ def print_merged_io_info(parser: RKNNParser) -> None:
         shape = format_shape(size)
         shape_str = "[" + ", ".join(f"'{s}'" if isinstance(s, str) else str(s) for s in shape) + "]"
 
-        # Print basic info
-        print(f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str},')
+        # Build the base output string
+        output_parts = [f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str}']
 
-        # Print additional info from FlatBuffers
-        if "layout" in tensor:
-            print(f'    Layout: {tensor["layout"]} (original: {tensor.get("layout_ori", "n/a")})')
+        # Add layout info from FlatBuffers
+        if "layout" in tensor and tensor["layout"]:
+            layout = tensor["layout"].upper()
+            layout_ori = tensor.get("layout_ori", "").upper()
+            if layout_ori and layout_ori != layout:
+                output_parts.append(f"layout {layout}(ori:{layout_ori})")
+            else:
+                output_parts.append(f"layout {layout}")
 
+        # Add quantization info from FlatBuffers
         if "quant_info" in tensor:
             quant = tensor["quant_info"]
             if quant.get("qmethod") or quant.get("qtype"):
-                print(f'    Quantization: {quant["qmethod"]} {quant["qtype"]}')
+                output_parts.append(f"quant {quant['qmethod']} {quant['qtype']}")
+
+        # Print the merged info on one line
+        print(", ".join(output_parts) + ",")
 
 
 def print_model_summary(parser) -> None:
