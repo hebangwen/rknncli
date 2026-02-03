@@ -52,3 +52,43 @@ def Type1End(builder):
 
 def End(builder):
     return Type1End(builder)
+
+
+class Type1T(object):
+
+    # Type1T
+    def __init__(
+        self,
+        var1 = 0,
+    ):
+        self.var1 = var1  # type: int
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        type1 = Type1()
+        type1.Init(buf, pos)
+        return cls.InitFromObj(type1)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, type1):
+        x = Type1T()
+        x._UnPack(type1)
+        return x
+
+    # Type1T
+    def _UnPack(self, type1):
+        if type1 is None:
+            return
+        self.var1 = type1.Var1()
+
+    # Type1T
+    def Pack(self, builder):
+        Type1Start(builder)
+        Type1AddVar1(builder, self.var1)
+        type1 = Type1End(builder)
+        return type1

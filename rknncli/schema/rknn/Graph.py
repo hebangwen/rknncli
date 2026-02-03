@@ -228,3 +228,144 @@ def GraphEnd(builder):
 
 def End(builder):
     return GraphEnd(builder)
+
+import rknncli.schema.rknn.Node
+import rknncli.schema.rknn.Tensor
+import rknncli.schema.rknn.Type2
+try:
+    from typing import List
+except:
+    pass
+
+class GraphT(object):
+
+    # GraphT
+    def __init__(
+        self,
+        tensors = None,
+        nodes = None,
+        inputs = None,
+        outputs = None,
+        var1 = None,
+    ):
+        self.tensors = tensors  # type: Optional[List[rknn.Tensor.TensorT]]
+        self.nodes = nodes  # type: Optional[List[rknn.Node.NodeT]]
+        self.inputs = inputs  # type: Optional[List[int]]
+        self.outputs = outputs  # type: Optional[List[int]]
+        self.var1 = var1  # type: Optional[List[rknn.Type2.Type2T]]
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        graph = Graph()
+        graph.Init(buf, pos)
+        return cls.InitFromObj(graph)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, graph):
+        x = GraphT()
+        x._UnPack(graph)
+        return x
+
+    # GraphT
+    def _UnPack(self, graph):
+        if graph is None:
+            return
+        if not graph.TensorsIsNone():
+            self.tensors = []
+            for i in range(graph.TensorsLength()):
+                if graph.Tensors(i) is None:
+                    self.tensors.append(None)
+                else:
+                    tensor_ = rknn.Tensor.TensorT.InitFromObj(graph.Tensors(i))
+                    self.tensors.append(tensor_)
+        if not graph.NodesIsNone():
+            self.nodes = []
+            for i in range(graph.NodesLength()):
+                if graph.Nodes(i) is None:
+                    self.nodes.append(None)
+                else:
+                    node_ = rknn.Node.NodeT.InitFromObj(graph.Nodes(i))
+                    self.nodes.append(node_)
+        if not graph.InputsIsNone():
+            if np is None:
+                self.inputs = []
+                for i in range(graph.InputsLength()):
+                    self.inputs.append(graph.Inputs(i))
+            else:
+                self.inputs = graph.InputsAsNumpy()
+        if not graph.OutputsIsNone():
+            if np is None:
+                self.outputs = []
+                for i in range(graph.OutputsLength()):
+                    self.outputs.append(graph.Outputs(i))
+            else:
+                self.outputs = graph.OutputsAsNumpy()
+        if not graph.Var1IsNone():
+            self.var1 = []
+            for i in range(graph.Var1Length()):
+                if graph.Var1(i) is None:
+                    self.var1.append(None)
+                else:
+                    type2_ = rknn.Type2.Type2T.InitFromObj(graph.Var1(i))
+                    self.var1.append(type2_)
+
+    # GraphT
+    def Pack(self, builder):
+        if self.tensors is not None:
+            tensorslist = []
+            for i in range(len(self.tensors)):
+                tensorslist.append(self.tensors[i].Pack(builder))
+            GraphStartTensorsVector(builder, len(self.tensors))
+            for i in reversed(range(len(self.tensors))):
+                builder.PrependUOffsetTRelative(tensorslist[i])
+            tensors = builder.EndVector()
+        if self.nodes is not None:
+            nodeslist = []
+            for i in range(len(self.nodes)):
+                nodeslist.append(self.nodes[i].Pack(builder))
+            GraphStartNodesVector(builder, len(self.nodes))
+            for i in reversed(range(len(self.nodes))):
+                builder.PrependUOffsetTRelative(nodeslist[i])
+            nodes = builder.EndVector()
+        if self.inputs is not None:
+            if np is not None and type(self.inputs) is np.ndarray:
+                inputs = builder.CreateNumpyVector(self.inputs)
+            else:
+                GraphStartInputsVector(builder, len(self.inputs))
+                for i in reversed(range(len(self.inputs))):
+                    builder.PrependInt32(self.inputs[i])
+                inputs = builder.EndVector()
+        if self.outputs is not None:
+            if np is not None and type(self.outputs) is np.ndarray:
+                outputs = builder.CreateNumpyVector(self.outputs)
+            else:
+                GraphStartOutputsVector(builder, len(self.outputs))
+                for i in reversed(range(len(self.outputs))):
+                    builder.PrependInt32(self.outputs[i])
+                outputs = builder.EndVector()
+        if self.var1 is not None:
+            var1list = []
+            for i in range(len(self.var1)):
+                var1list.append(self.var1[i].Pack(builder))
+            GraphStartVar1Vector(builder, len(self.var1))
+            for i in reversed(range(len(self.var1))):
+                builder.PrependUOffsetTRelative(var1list[i])
+            var1 = builder.EndVector()
+        GraphStart(builder)
+        if self.tensors is not None:
+            GraphAddTensors(builder, tensors)
+        if self.nodes is not None:
+            GraphAddNodes(builder, nodes)
+        if self.inputs is not None:
+            GraphAddInputs(builder, inputs)
+        if self.outputs is not None:
+            GraphAddOutputs(builder, outputs)
+        if self.var1 is not None:
+            GraphAddVar1(builder, var1)
+        graph = GraphEnd(builder)
+        return graph

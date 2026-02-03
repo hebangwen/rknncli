@@ -468,3 +468,230 @@ def TensorEnd(builder):
 
 def End(builder):
     return TensorEnd(builder)
+
+try:
+    from typing import List
+except:
+    pass
+
+class TensorT(object):
+
+    # TensorT
+    def __init__(
+        self,
+        dataType = 0,
+        var02 = 0,
+        kind = 0,
+        var04 = None,
+        shape = None,
+        name = None,
+        var06 = None,
+        var07 = None,
+        var08 = None,
+        var09 = None,
+        var10 = None,
+        var11 = None,
+        size = 0,
+        var13 = 0,
+        var14 = 0,
+        var15 = 0,
+        var16 = 0,
+        var17 = 0,
+        index = 0,
+    ):
+        self.dataType = dataType  # type: int
+        self.var02 = var02  # type: int
+        self.kind = kind  # type: int
+        self.var04 = var04  # type: Optional[List[int]]
+        self.shape = shape  # type: Optional[List[int]]
+        self.name = name  # type: Optional[str]
+        self.var06 = var06  # type: Optional[List[int]]
+        self.var07 = var07  # type: Optional[str]
+        self.var08 = var08  # type: Optional[List[int]]
+        self.var09 = var09  # type: Optional[List[int]]
+        self.var10 = var10  # type: Optional[List[int]]
+        self.var11 = var11  # type: Optional[List[int]]
+        self.size = size  # type: int
+        self.var13 = var13  # type: int
+        self.var14 = var14  # type: int
+        self.var15 = var15  # type: int
+        self.var16 = var16  # type: int
+        self.var17 = var17  # type: int
+        self.index = index  # type: int
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        tensor = Tensor()
+        tensor.Init(buf, pos)
+        return cls.InitFromObj(tensor)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, tensor):
+        x = TensorT()
+        x._UnPack(tensor)
+        return x
+
+    # TensorT
+    def _UnPack(self, tensor):
+        if tensor is None:
+            return
+        self.dataType = tensor.DataType()
+        self.var02 = tensor.Var02()
+        self.kind = tensor.Kind()
+        if not tensor.Var04IsNone():
+            if np is None:
+                self.var04 = []
+                for i in range(tensor.Var04Length()):
+                    self.var04.append(tensor.Var04(i))
+            else:
+                self.var04 = tensor.Var04AsNumpy()
+        if not tensor.ShapeIsNone():
+            if np is None:
+                self.shape = []
+                for i in range(tensor.ShapeLength()):
+                    self.shape.append(tensor.Shape(i))
+            else:
+                self.shape = tensor.ShapeAsNumpy()
+        self.name = tensor.Name()
+        if not tensor.Var06IsNone():
+            if np is None:
+                self.var06 = []
+                for i in range(tensor.Var06Length()):
+                    self.var06.append(tensor.Var06(i))
+            else:
+                self.var06 = tensor.Var06AsNumpy()
+        self.var07 = tensor.Var07()
+        if not tensor.Var08IsNone():
+            if np is None:
+                self.var08 = []
+                for i in range(tensor.Var08Length()):
+                    self.var08.append(tensor.Var08(i))
+            else:
+                self.var08 = tensor.Var08AsNumpy()
+        if not tensor.Var09IsNone():
+            if np is None:
+                self.var09 = []
+                for i in range(tensor.Var09Length()):
+                    self.var09.append(tensor.Var09(i))
+            else:
+                self.var09 = tensor.Var09AsNumpy()
+        if not tensor.Var10IsNone():
+            if np is None:
+                self.var10 = []
+                for i in range(tensor.Var10Length()):
+                    self.var10.append(tensor.Var10(i))
+            else:
+                self.var10 = tensor.Var10AsNumpy()
+        if not tensor.Var11IsNone():
+            if np is None:
+                self.var11 = []
+                for i in range(tensor.Var11Length()):
+                    self.var11.append(tensor.Var11(i))
+            else:
+                self.var11 = tensor.Var11AsNumpy()
+        self.size = tensor.Size()
+        self.var13 = tensor.Var13()
+        self.var14 = tensor.Var14()
+        self.var15 = tensor.Var15()
+        self.var16 = tensor.Var16()
+        self.var17 = tensor.Var17()
+        self.index = tensor.Index()
+
+    # TensorT
+    def Pack(self, builder):
+        if self.var04 is not None:
+            if np is not None and type(self.var04) is np.ndarray:
+                var04 = builder.CreateNumpyVector(self.var04)
+            else:
+                TensorStartVar04Vector(builder, len(self.var04))
+                for i in reversed(range(len(self.var04))):
+                    builder.PrependInt32(self.var04[i])
+                var04 = builder.EndVector()
+        if self.shape is not None:
+            if np is not None and type(self.shape) is np.ndarray:
+                shape = builder.CreateNumpyVector(self.shape)
+            else:
+                TensorStartShapeVector(builder, len(self.shape))
+                for i in reversed(range(len(self.shape))):
+                    builder.PrependInt32(self.shape[i])
+                shape = builder.EndVector()
+        if self.name is not None:
+            name = builder.CreateString(self.name)
+        if self.var06 is not None:
+            if np is not None and type(self.var06) is np.ndarray:
+                var06 = builder.CreateNumpyVector(self.var06)
+            else:
+                TensorStartVar06Vector(builder, len(self.var06))
+                for i in reversed(range(len(self.var06))):
+                    builder.PrependByte(self.var06[i])
+                var06 = builder.EndVector()
+        if self.var07 is not None:
+            var07 = builder.CreateString(self.var07)
+        if self.var08 is not None:
+            if np is not None and type(self.var08) is np.ndarray:
+                var08 = builder.CreateNumpyVector(self.var08)
+            else:
+                TensorStartVar08Vector(builder, len(self.var08))
+                for i in reversed(range(len(self.var08))):
+                    builder.PrependByte(self.var08[i])
+                var08 = builder.EndVector()
+        if self.var09 is not None:
+            if np is not None and type(self.var09) is np.ndarray:
+                var09 = builder.CreateNumpyVector(self.var09)
+            else:
+                TensorStartVar09Vector(builder, len(self.var09))
+                for i in reversed(range(len(self.var09))):
+                    builder.PrependByte(self.var09[i])
+                var09 = builder.EndVector()
+        if self.var10 is not None:
+            if np is not None and type(self.var10) is np.ndarray:
+                var10 = builder.CreateNumpyVector(self.var10)
+            else:
+                TensorStartVar10Vector(builder, len(self.var10))
+                for i in reversed(range(len(self.var10))):
+                    builder.PrependByte(self.var10[i])
+                var10 = builder.EndVector()
+        if self.var11 is not None:
+            if np is not None and type(self.var11) is np.ndarray:
+                var11 = builder.CreateNumpyVector(self.var11)
+            else:
+                TensorStartVar11Vector(builder, len(self.var11))
+                for i in reversed(range(len(self.var11))):
+                    builder.PrependByte(self.var11[i])
+                var11 = builder.EndVector()
+        TensorStart(builder)
+        TensorAddDataType(builder, self.dataType)
+        TensorAddVar02(builder, self.var02)
+        TensorAddKind(builder, self.kind)
+        if self.var04 is not None:
+            TensorAddVar04(builder, var04)
+        if self.shape is not None:
+            TensorAddShape(builder, shape)
+        if self.name is not None:
+            TensorAddName(builder, name)
+        if self.var06 is not None:
+            TensorAddVar06(builder, var06)
+        if self.var07 is not None:
+            TensorAddVar07(builder, var07)
+        if self.var08 is not None:
+            TensorAddVar08(builder, var08)
+        if self.var09 is not None:
+            TensorAddVar09(builder, var09)
+        if self.var10 is not None:
+            TensorAddVar10(builder, var10)
+        if self.var11 is not None:
+            TensorAddVar11(builder, var11)
+        TensorAddSize(builder, self.size)
+        TensorAddVar13(builder, self.var13)
+        TensorAddVar14(builder, self.var14)
+        TensorAddVar15(builder, self.var15)
+        TensorAddVar16(builder, self.var16)
+        TensorAddVar17(builder, self.var17)
+        TensorAddIndex(builder, self.index)
+        tensor = TensorEnd(builder)
+        return tensor

@@ -245,3 +245,136 @@ def NodeEnd(builder):
 
 def End(builder):
     return NodeEnd(builder)
+
+import rknncli.schema.rknn.Type3
+try:
+    from typing import List
+except:
+    pass
+
+class NodeT(object):
+
+    # NodeT
+    def __init__(
+        self,
+        var1 = 0,
+        type = None,
+        name = None,
+        var2 = 0,
+        inputs = None,
+        outputs = None,
+        var3 = None,
+        var4 = 0,
+        var5 = 0,
+        var6 = 0,
+    ):
+        self.var1 = var1  # type: int
+        self.type = type  # type: Optional[str]
+        self.name = name  # type: Optional[str]
+        self.var2 = var2  # type: int
+        self.inputs = inputs  # type: Optional[List[int]]
+        self.outputs = outputs  # type: Optional[List[int]]
+        self.var3 = var3  # type: Optional[List[rknn.Type3.Type3T]]
+        self.var4 = var4  # type: int
+        self.var5 = var5  # type: int
+        self.var6 = var6  # type: int
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        node = Node()
+        node.Init(buf, pos)
+        return cls.InitFromObj(node)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, node):
+        x = NodeT()
+        x._UnPack(node)
+        return x
+
+    # NodeT
+    def _UnPack(self, node):
+        if node is None:
+            return
+        self.var1 = node.Var1()
+        self.type = node.Type()
+        self.name = node.Name()
+        self.var2 = node.Var2()
+        if not node.InputsIsNone():
+            if np is None:
+                self.inputs = []
+                for i in range(node.InputsLength()):
+                    self.inputs.append(node.Inputs(i))
+            else:
+                self.inputs = node.InputsAsNumpy()
+        if not node.OutputsIsNone():
+            if np is None:
+                self.outputs = []
+                for i in range(node.OutputsLength()):
+                    self.outputs.append(node.Outputs(i))
+            else:
+                self.outputs = node.OutputsAsNumpy()
+        if not node.Var3IsNone():
+            self.var3 = []
+            for i in range(node.Var3Length()):
+                if node.Var3(i) is None:
+                    self.var3.append(None)
+                else:
+                    type3_ = rknn.Type3.Type3T.InitFromObj(node.Var3(i))
+                    self.var3.append(type3_)
+        self.var4 = node.Var4()
+        self.var5 = node.Var5()
+        self.var6 = node.Var6()
+
+    # NodeT
+    def Pack(self, builder):
+        if self.type is not None:
+            type = builder.CreateString(self.type)
+        if self.name is not None:
+            name = builder.CreateString(self.name)
+        if self.inputs is not None:
+            if np is not None and type(self.inputs) is np.ndarray:
+                inputs = builder.CreateNumpyVector(self.inputs)
+            else:
+                NodeStartInputsVector(builder, len(self.inputs))
+                for i in reversed(range(len(self.inputs))):
+                    builder.PrependInt32(self.inputs[i])
+                inputs = builder.EndVector()
+        if self.outputs is not None:
+            if np is not None and type(self.outputs) is np.ndarray:
+                outputs = builder.CreateNumpyVector(self.outputs)
+            else:
+                NodeStartOutputsVector(builder, len(self.outputs))
+                for i in reversed(range(len(self.outputs))):
+                    builder.PrependInt32(self.outputs[i])
+                outputs = builder.EndVector()
+        if self.var3 is not None:
+            var3list = []
+            for i in range(len(self.var3)):
+                var3list.append(self.var3[i].Pack(builder))
+            NodeStartVar3Vector(builder, len(self.var3))
+            for i in reversed(range(len(self.var3))):
+                builder.PrependUOffsetTRelative(var3list[i])
+            var3 = builder.EndVector()
+        NodeStart(builder)
+        NodeAddVar1(builder, self.var1)
+        if self.type is not None:
+            NodeAddType(builder, type)
+        if self.name is not None:
+            NodeAddName(builder, name)
+        NodeAddVar2(builder, self.var2)
+        if self.inputs is not None:
+            NodeAddInputs(builder, inputs)
+        if self.outputs is not None:
+            NodeAddOutputs(builder, outputs)
+        if self.var3 is not None:
+            NodeAddVar3(builder, var3)
+        NodeAddVar4(builder, self.var4)
+        NodeAddVar5(builder, self.var5)
+        NodeAddVar6(builder, self.var6)
+        node = NodeEnd(builder)
+        return node

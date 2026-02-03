@@ -269,3 +269,154 @@ def ModelEnd(builder):
 
 def End(builder):
     return ModelEnd(builder)
+
+import rknncli.schema.rknn.Graph
+import rknncli.schema.rknn.Type1
+try:
+    from typing import List
+except:
+    pass
+
+class ModelT(object):
+
+    # ModelT
+    def __init__(
+        self,
+        var1 = 0,
+        format = None,
+        graphs = None,
+        generator = None,
+        var2 = None,
+        var3 = 0,
+        var4 = 0,
+        compiler = None,
+        runtime = None,
+        source = None,
+        var5 = False,
+        var6 = 0,
+        inputJson = None,
+        outputJson = None,
+    ):
+        self.var1 = var1  # type: int
+        self.format = format  # type: Optional[str]
+        self.graphs = graphs  # type: Optional[List[rknn.Graph.GraphT]]
+        self.generator = generator  # type: Optional[str]
+        self.var2 = var2  # type: Optional[List[rknn.Type1.Type1T]]
+        self.var3 = var3  # type: int
+        self.var4 = var4  # type: int
+        self.compiler = compiler  # type: Optional[str]
+        self.runtime = runtime  # type: Optional[str]
+        self.source = source  # type: Optional[str]
+        self.var5 = var5  # type: bool
+        self.var6 = var6  # type: int
+        self.inputJson = inputJson  # type: Optional[str]
+        self.outputJson = outputJson  # type: Optional[str]
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        model = Model()
+        model.Init(buf, pos)
+        return cls.InitFromObj(model)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, model):
+        x = ModelT()
+        x._UnPack(model)
+        return x
+
+    # ModelT
+    def _UnPack(self, model):
+        if model is None:
+            return
+        self.var1 = model.Var1()
+        self.format = model.Format()
+        if not model.GraphsIsNone():
+            self.graphs = []
+            for i in range(model.GraphsLength()):
+                if model.Graphs(i) is None:
+                    self.graphs.append(None)
+                else:
+                    graph_ = rknn.Graph.GraphT.InitFromObj(model.Graphs(i))
+                    self.graphs.append(graph_)
+        self.generator = model.Generator()
+        if not model.Var2IsNone():
+            self.var2 = []
+            for i in range(model.Var2Length()):
+                if model.Var2(i) is None:
+                    self.var2.append(None)
+                else:
+                    type1_ = rknn.Type1.Type1T.InitFromObj(model.Var2(i))
+                    self.var2.append(type1_)
+        self.var3 = model.Var3()
+        self.var4 = model.Var4()
+        self.compiler = model.Compiler()
+        self.runtime = model.Runtime()
+        self.source = model.Source()
+        self.var5 = model.Var5()
+        self.var6 = model.Var6()
+        self.inputJson = model.InputJson()
+        self.outputJson = model.OutputJson()
+
+    # ModelT
+    def Pack(self, builder):
+        if self.format is not None:
+            format = builder.CreateString(self.format)
+        if self.graphs is not None:
+            graphslist = []
+            for i in range(len(self.graphs)):
+                graphslist.append(self.graphs[i].Pack(builder))
+            ModelStartGraphsVector(builder, len(self.graphs))
+            for i in reversed(range(len(self.graphs))):
+                builder.PrependUOffsetTRelative(graphslist[i])
+            graphs = builder.EndVector()
+        if self.generator is not None:
+            generator = builder.CreateString(self.generator)
+        if self.var2 is not None:
+            var2list = []
+            for i in range(len(self.var2)):
+                var2list.append(self.var2[i].Pack(builder))
+            ModelStartVar2Vector(builder, len(self.var2))
+            for i in reversed(range(len(self.var2))):
+                builder.PrependUOffsetTRelative(var2list[i])
+            var2 = builder.EndVector()
+        if self.compiler is not None:
+            compiler = builder.CreateString(self.compiler)
+        if self.runtime is not None:
+            runtime = builder.CreateString(self.runtime)
+        if self.source is not None:
+            source = builder.CreateString(self.source)
+        if self.inputJson is not None:
+            inputJson = builder.CreateString(self.inputJson)
+        if self.outputJson is not None:
+            outputJson = builder.CreateString(self.outputJson)
+        ModelStart(builder)
+        ModelAddVar1(builder, self.var1)
+        if self.format is not None:
+            ModelAddFormat(builder, format)
+        if self.graphs is not None:
+            ModelAddGraphs(builder, graphs)
+        if self.generator is not None:
+            ModelAddGenerator(builder, generator)
+        if self.var2 is not None:
+            ModelAddVar2(builder, var2)
+        ModelAddVar3(builder, self.var3)
+        ModelAddVar4(builder, self.var4)
+        if self.compiler is not None:
+            ModelAddCompiler(builder, compiler)
+        if self.runtime is not None:
+            ModelAddRuntime(builder, runtime)
+        if self.source is not None:
+            ModelAddSource(builder, source)
+        ModelAddVar5(builder, self.var5)
+        ModelAddVar6(builder, self.var6)
+        if self.inputJson is not None:
+            ModelAddInputJson(builder, inputJson)
+        if self.outputJson is not None:
+            ModelAddOutputJson(builder, outputJson)
+        model = ModelEnd(builder)
+        return model

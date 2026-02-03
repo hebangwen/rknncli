@@ -156,3 +156,100 @@ def Type2End(builder):
 
 def End(builder):
     return Type2End(builder)
+
+try:
+    from typing import List
+except:
+    pass
+
+class Type2T(object):
+
+    # Type2T
+    def __init__(
+        self,
+        var1 = None,
+        var2 = None,
+        var3 = None,
+    ):
+        self.var1 = var1  # type: Optional[List[int]]
+        self.var2 = var2  # type: Optional[List[int]]
+        self.var3 = var3  # type: Optional[List[int]]
+
+    @classmethod
+    def InitFromBuf(cls, buf, pos):
+        type2 = Type2()
+        type2.Init(buf, pos)
+        return cls.InitFromObj(type2)
+
+    @classmethod
+    def InitFromPackedBuf(cls, buf, pos=0):
+        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
+        return cls.InitFromBuf(buf, pos+n)
+
+    @classmethod
+    def InitFromObj(cls, type2):
+        x = Type2T()
+        x._UnPack(type2)
+        return x
+
+    # Type2T
+    def _UnPack(self, type2):
+        if type2 is None:
+            return
+        if not type2.Var1IsNone():
+            if np is None:
+                self.var1 = []
+                for i in range(type2.Var1Length()):
+                    self.var1.append(type2.Var1(i))
+            else:
+                self.var1 = type2.Var1AsNumpy()
+        if not type2.Var2IsNone():
+            if np is None:
+                self.var2 = []
+                for i in range(type2.Var2Length()):
+                    self.var2.append(type2.Var2(i))
+            else:
+                self.var2 = type2.Var2AsNumpy()
+        if not type2.Var3IsNone():
+            if np is None:
+                self.var3 = []
+                for i in range(type2.Var3Length()):
+                    self.var3.append(type2.Var3(i))
+            else:
+                self.var3 = type2.Var3AsNumpy()
+
+    # Type2T
+    def Pack(self, builder):
+        if self.var1 is not None:
+            if np is not None and type(self.var1) is np.ndarray:
+                var1 = builder.CreateNumpyVector(self.var1)
+            else:
+                Type2StartVar1Vector(builder, len(self.var1))
+                for i in reversed(range(len(self.var1))):
+                    builder.PrependInt32(self.var1[i])
+                var1 = builder.EndVector()
+        if self.var2 is not None:
+            if np is not None and type(self.var2) is np.ndarray:
+                var2 = builder.CreateNumpyVector(self.var2)
+            else:
+                Type2StartVar2Vector(builder, len(self.var2))
+                for i in reversed(range(len(self.var2))):
+                    builder.PrependInt32(self.var2[i])
+                var2 = builder.EndVector()
+        if self.var3 is not None:
+            if np is not None and type(self.var3) is np.ndarray:
+                var3 = builder.CreateNumpyVector(self.var3)
+            else:
+                Type2StartVar3Vector(builder, len(self.var3))
+                for i in reversed(range(len(self.var3))):
+                    builder.PrependInt32(self.var3[i])
+                var3 = builder.EndVector()
+        Type2Start(builder)
+        if self.var1 is not None:
+            Type2AddVar1(builder, var1)
+        if self.var2 is not None:
+            Type2AddVar2(builder, var2)
+        if self.var3 is not None:
+            Type2AddVar3(builder, var3)
+        type2 = Type2End(builder)
+        return type2
