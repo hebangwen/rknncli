@@ -9,7 +9,7 @@ from typing import Any
 class RKNNParser:
     """Parser for RKNN model files."""
 
-    HEADER_SIZE = 72
+    HEADER_SIZE = 64
     MAGIC_NUMBER = b"RKNN"
 
     def __init__(self, file_path: str | Path):
@@ -26,7 +26,7 @@ class RKNNParser:
     def _parse(self) -> None:
         """Parse the RKNN file."""
         with open(self.file_path, "rb") as f:
-            # Read header (72 bytes)
+            # Read header
             header_data = f.read(self.HEADER_SIZE)
             if len(header_data) < self.HEADER_SIZE:
                 raise ValueError(f"File too small: {self.file_path}")
@@ -54,15 +54,22 @@ class RKNNParser:
             }
 
             # Calculate JSON offset and size
-            json_offset = self.HEADER_SIZE + file_length
-            file_size = self.file_path.stat().st_size
-            json_size = file_size - json_offset
-
-            if json_size <= 0:
-                raise ValueError(f"Invalid JSON section size: {json_size}")
+            real_header_size = self.HEADER_SIZE
+            if file_format <= 1:
+                # only 3 uint64 for rknn-v1
+                real_header_size = 24
 
             # Read JSON model info
+            file_size = self.file_path.stat().st_size
+            json_offset = real_header_size + file_length
             f.seek(json_offset)
+            json_size = struct.unpack("<Q", f.read(8))[0]
+            if (
+                json_size <= 0 or
+                json_size > file_size - real_header_size - file_length - 8
+            ):
+                raise ValueError(f"Invalide JSON size: {json_size}")
+
             json_data = f.read(json_size)
 
             try:
