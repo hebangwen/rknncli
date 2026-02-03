@@ -1,30 +1,42 @@
-"""RKNN file parser."""
+"""RKNN file parser with FlatBuffers support."""
 
 import json
 import struct
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
+import flatbuffers
+from rknncli.schema.rknn.Model import Model
+from rknncli.schema.rknn.Graph import Graph
+from rknncli.schema.rknn.Tensor import Tensor
+from rknncli.schema.rknn.Node import Node
 
 
 class RKNNParser:
-    """Parser for RKNN model files."""
+    """Parser for RKNN model files with optional FlatBuffers support."""
 
     HEADER_SIZE = 64
     MAGIC_NUMBER = b"RKNN"
 
-    def __init__(self, file_path: str | Path):
+    def __init__(self, file_path: str | Path, parse_flatbuffers: bool = False):
         """Initialize parser with RKNN file path.
 
         Args:
             file_path: Path to the RKNN model file.
+            parse_flatbuffers: Whether to parse FlatBuffers data. Defaults to False.
         """
         self.file_path = Path(file_path)
         self.header: dict[str, Any] = {}
         self.model_info: dict[str, Any] = {}
-        self._parse()
+        self.fb_model: Optional[Model] = None
+        self._parse(parse_flatbuffers)
 
-    def _parse(self) -> None:
-        """Parse the RKNN file."""
+    def _parse(self, parse_flatbuffers: bool) -> None:
+        """Parse the RKNN file.
+
+        Args:
+            parse_flatbuffers: Whether to parse FlatBuffers data.
+        """
         with open(self.file_path, "rb") as f:
             # Read header
             header_data = f.read(self.HEADER_SIZE)
@@ -59,6 +71,13 @@ class RKNNParser:
                 # only 3 uint64 for rknn-v1
                 real_header_size = 24
 
+            # Parse FlatBuffers data if requested
+            if parse_flatbuffers and file_length > 0:
+                fb_offset = real_header_size
+                fb_data = f.read(file_length)
+                if len(fb_data) == file_length:
+                    self.fb_model = Model.GetRootAs(fb_data, 0)
+
             # Read JSON model info
             file_size = self.file_path.stat().st_size
             json_offset = real_header_size + file_length
@@ -68,7 +87,7 @@ class RKNNParser:
                 json_size <= 0 or
                 json_size > file_size - real_header_size - file_length - 8
             ):
-                raise ValueError(f"Invalide JSON size: {json_size}")
+                raise ValueError(f"Invalid JSON size: {json_size}")
 
             json_data = f.read(json_size)
 
@@ -76,6 +95,91 @@ class RKNNParser:
                 self.model_info = json.loads(json_data.decode("utf-8"))
             except (json.JSONDecodeError, UnicodeDecodeError) as e:
                 raise ValueError(f"Failed to parse model info JSON: {e}")
+
+    def get_flatbuffers_info(self) -> dict[str, Any]:
+        """Get FlatBuffers model information.
+
+        Returns:
+            Dictionary containing FlatBuffers model data.
+        """
+        if not self.fb_model:
+            return {}
+
+        info = {}
+
+        # Basic model info
+        if self.fb_model.Format():
+            info["format"] = self.fb_model.Format().decode('utf-8')
+
+        if self.fb_model.Generator():
+            info["generator"] = self.fb_model.Generator().decode('utf-8')
+
+        if self.fb_model.Compiler():
+            info["compiler"] = self.fb_model.Compiler().decode('utf-8')
+
+        if self.fb_model.Runtime():
+            info["runtime"] = self.fb_model.Runtime().decode('utf-8')
+
+        if self.fb_model.Source():
+            info["source"] = self.fb_model.Source().decode('utf-8')
+
+        # Graphs info
+        info["num_graphs"] = self.fb_model.GraphsLength()
+
+        # Input/Output JSON strings
+        if self.fb_model.InputJson():
+            info["input_json"] = self.fb_model.InputJson().decode('utf-8')
+
+        if self.fb_model.OutputJson():
+            info["output_json"] = self.fb_model.OutputJson().decode('utf-8')
+
+        # Parse graphs
+        graphs = []
+        for i in range(self.fb_model.GraphsLength()):
+            graph = self.fb_model.Graphs(i)
+            if graph:
+                graph_info = {
+                    "num_tensors": graph.TensorsLength(),
+                    "num_nodes": graph.NodesLength(),
+                    "num_inputs": graph.InputsLength(),
+                    "num_outputs": graph.OutputsLength(),
+                }
+
+                # Parse tensors
+                tensors = []
+                for j in range(graph.TensorsLength()):
+                    tensor = graph.Tensors(j)
+                    if tensor:
+                        tensor_info = {
+                            "data_type": tensor.DataType(),
+                            "kind": tensor.Kind(),
+                            "name": tensor.Name().decode('utf-8') if tensor.Name() else "",
+                            "shape": [tensor.Shape(k) for k in range(tensor.ShapeLength())],
+                            "size": tensor.Size(),
+                            "index": tensor.Index(),
+                        }
+                        tensors.append(tensor_info)
+                graph_info["tensors"] = tensors
+
+                # Parse nodes
+                nodes = []
+                for j in range(graph.NodesLength()):
+                    node = graph.Nodes(j)
+                    if node:
+                        node_info = {
+                            "type": node.Type().decode('utf-8') if node.Type() else "",
+                            "name": node.Name().decode('utf-8') if node.Name() else "",
+                            "num_inputs": node.InputsLength(),
+                            "num_outputs": node.OutputsLength(),
+                        }
+                        nodes.append(node_info)
+                graph_info["nodes"] = nodes
+
+                graphs.append(graph_info)
+
+        info["graphs"] = graphs
+
+        return info
 
     def get_input_info(self) -> list[dict[str, Any]]:
         """Get model input information.

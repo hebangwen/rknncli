@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 from rknncli.parser import RKNNParser
-from rknncli.fb_parser import RKNNFlatBuffersParser
 
 
 def format_shape(size: list) -> list:
@@ -96,7 +95,7 @@ def print_model_summary(parser) -> None:
     print()
 
 
-def print_flatbuffers_info(parser: RKNNFlatBuffersParser) -> None:
+def print_flatbuffers_info(parser) -> None:
     """Print FlatBuffers model information.
 
     Args:
@@ -192,12 +191,12 @@ def main() -> int:
     try:
         if args.fb_only:
             # Only parse FlatBuffers data
-            rknn_parser = RKNNFlatBuffersParser(model_path)
+            rknn_parser = RKNNParser(model_path, parse_flatbuffers=True)
             print_flatbuffers_info(rknn_parser)
             return 0
         elif args.fb:
             # Parse both FlatBuffers and JSON data
-            rknn_parser = RKNNFlatBuffersParser(model_path)
+            rknn_parser = RKNNParser(model_path, parse_flatbuffers=True)
             # Print FlatBuffers info first
             print_flatbuffers_info(rknn_parser)
             # Then print JSON model info
