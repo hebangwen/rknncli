@@ -3,7 +3,7 @@
 import json
 import struct
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Dict, List, Union
 
 import flatbuffers
 from rknncli.schema.rknn.Model import Model
@@ -18,7 +18,7 @@ class RKNNParser:
     HEADER_SIZE = 64
     MAGIC_NUMBER = b"RKNN"
 
-    def __init__(self, file_path: str | Path, parse_flatbuffers: bool = False):
+    def __init__(self, file_path: Union[str, Path], parse_flatbuffers: bool = False):
         """Initialize parser with RKNN file path.
 
         Args:
@@ -26,8 +26,8 @@ class RKNNParser:
             parse_flatbuffers: Whether to parse FlatBuffers data. Defaults to False.
         """
         self.file_path = Path(file_path)
-        self.header: dict[str, Any] = {}
-        self.model_info: dict[str, Any] = {}
+        self.header: Dict[str, Any] = {}
+        self.model_info: Dict[str, Any] = {}
         self.fb_model: Optional[Model] = None
         self._parse(parse_flatbuffers)
 
@@ -96,7 +96,7 @@ class RKNNParser:
             except (json.JSONDecodeError, UnicodeDecodeError) as e:
                 raise ValueError(f"Failed to parse model info JSON: {e}")
 
-    def get_flatbuffers_info(self) -> dict[str, Any]:
+    def get_flatbuffers_info(self) -> Dict[str, Any]:
         """Get FlatBuffers model information.
 
         Returns:
@@ -181,7 +181,7 @@ class RKNNParser:
 
         return info
 
-    def get_input_info(self) -> list[dict[str, Any]]:
+    def get_input_info(self) -> List[Dict[str, Any]]:
         """Get model input information.
 
         Returns:
@@ -199,7 +199,7 @@ class RKNNParser:
 
         return inputs
 
-    def get_output_info(self) -> list[dict[str, Any]]:
+    def get_output_info(self) -> List[Dict[str, Any]]:
         """Get model output information.
 
         Returns:

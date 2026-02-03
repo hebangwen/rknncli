@@ -3,11 +3,12 @@
 import argparse
 import sys
 from pathlib import Path
+from typing import List, Dict, Any
 
 from rknncli.parser import RKNNParser
 
 
-def format_shape(size: list) -> list:
+def format_shape(size: List) -> List:
     """Format tensor shape with dimension names.
 
     Args:
@@ -19,7 +20,7 @@ def format_shape(size: list) -> list:
     return size
 
 
-def get_dtype_str(dtype_info: dict) -> str:
+def get_dtype_str(dtype_info: Dict) -> str:
     """Get data type string from dtype info.
 
     Args:
@@ -95,11 +96,11 @@ def print_model_summary(parser) -> None:
     print()
 
 
-def print_flatbuffers_info(parser) -> None:
+def print_flatbuffers_info(parser: Any) -> None:
     """Print FlatBuffers model information.
 
     Args:
-        parser: RKNNFlatBuffersParser instance.
+        parser: RKNNParser instance with FlatBuffers support.
     """
     print("FlatBuffers Model Information")
     print("-" * 80)
