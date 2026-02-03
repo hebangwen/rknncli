@@ -40,46 +40,105 @@ def get_dtype_str(dtype_info: Dict) -> str:
     return "FLOAT"
 
 
-def print_input_info(parser) -> None:
-    """Print input tensor information.
+
+
+def print_merged_model_info(parser: RKNNParser) -> None:
+    """Print merged model information from both FlatBuffers and JSON.
 
     Args:
-        parser: RKNNParser instance.
+        parser: RKNNParser instance with FlatBuffers support.
     """
+    # Get basic model info from JSON
+    print(f"Model: {parser.get_model_name()}")
+    print(f"Version: {parser.get_version()}")
+    platforms = parser.get_target_platform()
+    if platforms:
+        print(f"Target Platform: {', '.join(platforms)}")
+
+    # Get FlatBuffers info
+    fb_info = parser.get_flatbuffers_info()
+    if fb_info:
+        print(f"Format: {fb_info.get('format', 'Unknown')}")
+        print(f"Source: {fb_info.get('source', 'Unknown')}")
+        print(f"Compiler: {fb_info.get('compiler', 'Unknown')}")
+        print(f"Runtime: {fb_info.get('runtime', 'Unknown')}")
+
+        if fb_info.get("num_graphs", 0) > 0:
+            print(f"Number of graphs: {fb_info['num_graphs']}")
+
+    print()
+
+
+def print_merged_io_info(parser: RKNNParser) -> None:
+    """Print merged input/output information from both FlatBuffers and JSON.
+
+    Args:
+        parser: RKNNParser instance with FlatBuffers support.
+    """
+    # Get merged IO info
+    inputs, outputs = parser.get_merged_io_info()
+
+    # Print input information
     print("Input information")
     print("-" * 80)
 
-    inputs = parser.get_input_info()
     for tensor in inputs:
         name = tensor.get("url", f"tensor_{tensor.get('tensor_id', 0)}")
-        dtype_info = tensor.get("dtype", {})
-        dtype = get_dtype_str(dtype_info)
+        dtype = tensor.get("dtype", {})
+
+        # Get dtype string
+        if isinstance(dtype, dict):
+            dtype_str = get_dtype_str(dtype)
+        else:
+            dtype_str = str(dtype).upper()
+
         size = tensor.get("size", [])
         shape = format_shape(size)
-
         shape_str = "[" + ", ".join(f"'{s}'" if isinstance(s, str) else str(s) for s in shape) + "]"
-        print(f'  ValueInfo "{name}": type {dtype}, shape {shape_str},')
 
+        # Print basic info
+        print(f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str},')
 
-def print_output_info(parser) -> None:
-    """Print output tensor information.
+        # Print additional info from FlatBuffers
+        if "layout" in tensor:
+            print(f'    Layout: {tensor["layout"]} (original: {tensor.get("layout_ori", "n/a")})')
 
-    Args:
-        parser: RKNNParser instance.
-    """
+        if "quant_info" in tensor:
+            quant = tensor["quant_info"]
+            if quant.get("qmethod") or quant.get("qtype"):
+                print(f'    Quantization: {quant["qmethod"]} {quant["qtype"]}')
+
+    print()
+
+    # Print output information
     print("Output information")
     print("-" * 80)
 
-    outputs = parser.get_output_info()
     for tensor in outputs:
         name = tensor.get("url", f"tensor_{tensor.get('tensor_id', 0)}")
-        dtype_info = tensor.get("dtype", {})
-        dtype = get_dtype_str(dtype_info)
+        dtype = tensor.get("dtype", {})
+
+        # Get dtype string
+        if isinstance(dtype, dict):
+            dtype_str = get_dtype_str(dtype)
+        else:
+            dtype_str = str(dtype).upper()
+
         size = tensor.get("size", [])
         shape = format_shape(size)
-
         shape_str = "[" + ", ".join(f"'{s}'" if isinstance(s, str) else str(s) for s in shape) + "]"
-        print(f'  ValueInfo "{name}": type {dtype}, shape {shape_str},')
+
+        # Print basic info
+        print(f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str},')
+
+        # Print additional info from FlatBuffers
+        if "layout" in tensor:
+            print(f'    Layout: {tensor["layout"]} (original: {tensor.get("layout_ori", "n/a")})')
+
+        if "quant_info" in tensor:
+            quant = tensor["quant_info"]
+            if quant.get("qmethod") or quant.get("qtype"):
+                print(f'    Quantization: {quant["qmethod"]} {quant["qtype"]}')
 
 
 def print_model_summary(parser) -> None:
@@ -96,55 +155,6 @@ def print_model_summary(parser) -> None:
     print()
 
 
-def print_flatbuffers_info(parser: Any) -> None:
-    """Print FlatBuffers model information.
-
-    Args:
-        parser: RKNNParser instance with FlatBuffers support.
-    """
-    print("FlatBuffers Model Information")
-    print("-" * 80)
-
-    fb_info = parser.get_flatbuffers_info()
-
-    if "format" in fb_info:
-        print(f"Format: {fb_info['format']}")
-    if "generator" in fb_info:
-        print(f"Generator: {fb_info['generator']}")
-    if "compiler" in fb_info:
-        print(f"Compiler: {fb_info['compiler']}")
-    if "runtime" in fb_info:
-        print(f"Runtime: {fb_info['runtime']}")
-    if "source" in fb_info:
-        print(f"Source: {fb_info['source']}")
-
-    print(f"Number of graphs: {fb_info.get('num_graphs', 0)}")
-
-    # Print graph details
-    for i, graph in enumerate(fb_info.get('graphs', [])):
-        print(f"\nGraph {i}:")
-        print(f"  Tensors: {graph['num_tensors']}")
-        print(f"  Nodes: {graph['num_nodes']}")
-        print(f"  Inputs: {graph['num_inputs']}")
-        print(f"  Outputs: {graph['num_outputs']}")
-
-        # Print input/output tensor details
-        if graph['tensors']:
-            inputs = [t for t in graph['tensors'] if t.get('kind', 0) == 1]  # Assuming 1 means input
-            outputs = [t for t in graph['tensors'] if t.get('kind', 0) == 2]  # Assuming 2 means output
-
-            if inputs:
-                print(f"  Input tensors: {len(inputs)}")
-                for t in inputs:
-                    shape_str = str(t['shape']) if t['shape'] else "scalar"
-                    print(f"    - {t['name']}: {shape_str}")
-
-            if outputs:
-                print(f"  Output tensors: {len(outputs)}")
-                for t in outputs:
-                    shape_str = str(t['shape']) if t['shape'] else "scalar"
-                    print(f"    - {t['name']}: {shape_str}")
-    print()
 
 
 def main() -> int:
@@ -167,16 +177,6 @@ def main() -> int:
         action="version",
         version="%(prog)s 0.1.0",
     )
-    parser.add_argument(
-        "--fb", "--flatbuffers",
-        action="store_true",
-        help="Use FlatBuffers parser to parse binary model data",
-    )
-    parser.add_argument(
-        "--fb-only",
-        action="store_true",
-        help="Only parse FlatBuffers data (skip JSON parsing)",
-    )
 
     args = parser.parse_args()
 
@@ -190,28 +190,14 @@ def main() -> int:
         return 1
 
     try:
-        if args.fb_only:
-            # Only parse FlatBuffers data
-            rknn_parser = RKNNParser(model_path, parse_flatbuffers=True)
-            print_flatbuffers_info(rknn_parser)
-            return 0
-        elif args.fb:
-            # Parse both FlatBuffers and JSON data
-            rknn_parser = RKNNParser(model_path, parse_flatbuffers=True)
-            # Print FlatBuffers info first
-            print_flatbuffers_info(rknn_parser)
-            # Then print JSON model info
-            print_model_summary(rknn_parser)
-            print_input_info(rknn_parser)
-            print()
-            print_output_info(rknn_parser)
-        else:
-            # Default: only parse JSON data
-            rknn_parser = RKNNParser(model_path)
-            print_model_summary(rknn_parser)
-            print_input_info(rknn_parser)
-            print()
-            print_output_info(rknn_parser)
+        # Always parse both FlatBuffers and JSON data
+        rknn_parser = RKNNParser(model_path, parse_flatbuffers=True)
+
+        # Print merged model information
+        print_merged_model_info(rknn_parser)
+
+        # Print merged IO information
+        print_merged_io_info(rknn_parser)
     except ValueError as e:
         print(f"Error: Failed to parse RKNN file: {e}", file=sys.stderr)
         return 1

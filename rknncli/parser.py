@@ -3,7 +3,7 @@
 import json
 import struct
 from pathlib import Path
-from typing import Any, Optional, Dict, List, Union
+from typing import Any, Optional, Dict, List, Union, Tuple
 
 import flatbuffers
 from rknncli.schema.rknn.Model import Model
@@ -18,7 +18,7 @@ class RKNNParser:
     HEADER_SIZE = 64
     MAGIC_NUMBER = b"RKNN"
 
-    def __init__(self, file_path: Union[str, Path], parse_flatbuffers: bool = False):
+    def __init__(self, file_path: Union[str, Path], parse_flatbuffers: bool = True):
         """Initialize parser with RKNN file path.
 
         Args:
@@ -228,3 +228,93 @@ class RKNNParser:
     def get_target_platform(self) -> list[str]:
         """Get target platform."""
         return self.model_info.get("target_platform", [])
+
+    def get_merged_io_info(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Get merged input/output information from both FlatBuffers and JSON.
+
+        Returns:
+            Tuple of (inputs, outputs) with merged information.
+        """
+        # Get basic IO info from JSON
+        json_inputs = self.get_input_info()
+        json_outputs = self.get_output_info()
+
+        # If no FlatBuffers data, return JSON data as is
+        if not self.fb_model:
+            return json_inputs, json_outputs
+
+        # Get FlatBuffers info
+        fb_info = self.get_flatbuffers_info()
+
+        # Extract generator attributes and quant info
+        generator_attrs = {}
+        quant_tab = {}
+
+        # Parse generator JSON string if present
+        if fb_info.get("generator"):
+            try:
+                # Use ast.literal_eval to handle single quotes
+                import ast
+                gen_data = ast.literal_eval(fb_info["generator"])
+                if isinstance(gen_data, dict):
+                    generator_attrs = gen_data.get("attrs", {})
+                    quant_tab = gen_data.get("quant_tab", {})
+            except (ValueError, SyntaxError):
+                # Fallback: try JSON parse after fixing quotes
+                try:
+                    import json
+                    fixed_str = fb_info["generator"].replace("'", '"')
+                    gen_data = json.loads(fixed_str)
+                    if isinstance(gen_data, dict):
+                        generator_attrs = gen_data.get("attrs", {})
+                        quant_tab = gen_data.get("quant_tab", {})
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        # Merge input information
+        merged_inputs = []
+        for inp in json_inputs:
+            io_name = inp.get("url", "")
+            merged_inp = inp.copy()
+
+            # Add layout info from generator attrs
+            if io_name in generator_attrs:
+                merged_inp["layout"] = generator_attrs[io_name].get("layout", "")
+                merged_inp["layout_ori"] = generator_attrs[io_name].get("layout_ori", "")
+
+            # Add quant info from quant_tab
+            if io_name in quant_tab:
+                merged_inp["dtype"] = quant_tab[io_name].get("dtype", inp.get("dtype", {}))
+                merged_inp["quant_info"] = {
+                    "qmethod": quant_tab[io_name].get("qmethod", ""),
+                    "qtype": quant_tab[io_name].get("qtype", ""),
+                    "scale": quant_tab[io_name].get("scale", []),
+                    "zero_point": quant_tab[io_name].get("zero_point", [])
+                }
+
+            merged_inputs.append(merged_inp)
+
+        # Merge output information
+        merged_outputs = []
+        for out in json_outputs:
+            io_name = out.get("url", "")
+            merged_out = out.copy()
+
+            # Add layout info from generator attrs
+            if io_name in generator_attrs:
+                merged_out["layout"] = generator_attrs[io_name].get("layout", "")
+                merged_out["layout_ori"] = generator_attrs[io_name].get("layout_ori", "")
+
+            # Add quant info from quant_tab
+            if io_name in quant_tab:
+                merged_out["dtype"] = quant_tab[io_name].get("dtype", out.get("dtype", {}))
+                merged_out["quant_info"] = {
+                    "qmethod": quant_tab[io_name].get("qmethod", ""),
+                    "qtype": quant_tab[io_name].get("qtype", ""),
+                    "scale": quant_tab[io_name].get("scale", []),
+                    "zero_point": quant_tab[io_name].get("zero_point", [])
+                }
+
+            merged_outputs.append(merged_out)
+
+        return merged_inputs, merged_outputs
