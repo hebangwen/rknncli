@@ -230,7 +230,7 @@ class RKNNParser:
         """Get model version."""
         return self.model_info.get("version", "Unknown")
 
-    def get_target_platform(self) -> list[str]:
+    def get_target_platform(self) -> List[str]:
         """Get target platform."""
         return self.model_info.get("target_platform", [])
 
