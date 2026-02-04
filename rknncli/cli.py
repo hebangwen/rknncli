@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
+import importlib.metadata as metadata
 
 from rknncli.parser import RKNNParser
 
@@ -144,7 +145,7 @@ def main() -> int:
     parser.add_argument(
         "-v", "--version",
         action="version",
-        version="%(prog)s 0.1.0",
+        version=f"%(prog)s {metadata.version('rknncli')}",
     )
 
     args = parser.parse_args()

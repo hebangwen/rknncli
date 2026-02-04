@@ -97,8 +97,8 @@ class TestRKNNParser:
             parser = RKNNParser(model_path, parse_flatbuffers=True)
             generator_info = parser.get_generator_info()
 
-            # Currently returns None as it's a placeholder
-            assert generator_info is None
+            # 可能返回 None（如果没有 generator 信息）或 dict（如果有）
+            assert generator_info is None or isinstance(generator_info, dict)
 
     def test_get_input_info(self, rknn_files):
         """Test getting input information."""

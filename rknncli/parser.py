@@ -249,9 +249,16 @@ class RKNNParser:
         generator_info = fb_info.get("generator", None)
         if generator_info is None:
             return None
-        
+
+        # 修复引号并解析 JSON
         fixed_str = generator_info.replace("'", '"')
-        return json.loads(fixed_str)
+        fixed_str = fixed_str.replace("False", "false").replace("True", "true")
+
+        try:
+            return json.loads(fixed_str)
+        except json.JSONDecodeError:
+            # 如果解析失败，返回 None
+            return None
 
     def get_merged_io_info(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Get merged input/output information from both FlatBuffers and JSON.

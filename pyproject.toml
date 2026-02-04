@@ -1,6 +1,6 @@
 [project]
 name = "rknncli"
-version = "0.2.0"
+version = "0.2.1"
 description = "A command line tool for parsing and displaying RKNN model information"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -30,6 +30,7 @@ dependencies = [
     "flatbuffers",
     "graphviz",
     "click",
+    "tomli >= 1.0.0 ; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +42,7 @@ dev = [
     "mypy",
     "build",
     "twine",
+    "setuptools-scm",
 ]
 
 [project.scripts]
@@ -53,12 +55,15 @@ Documentation = "https://github.com/hebangwen/rknncli#readme"
 Issues = "https://github.com/hebangwen/rknncli/issues"
 
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools>=61", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["rknncli*"]
+
+[tool.setuptools_scm]
+write_to = "rknncli/_version.py"
 
 [tool.black]
 line-length = 100
