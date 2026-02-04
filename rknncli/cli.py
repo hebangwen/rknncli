@@ -68,94 +68,46 @@ def print_merged_model_info(parser: RKNNParser) -> None:
     print()
 
 
-def print_merged_io_info(parser: RKNNParser) -> None:
-    """Print merged input/output information from both FlatBuffers and JSON.
+def print_io_info(parser: RKNNParser) -> None:
+    """Print input/output information from JSON.
 
     Args:
-        parser: RKNNParser instance with FlatBuffers support.
+        parser: RKNNParser instance.
     """
-    # Get merged IO info
-    inputs, outputs = parser.get_merged_io_info()
+    # Get IO info from JSON only
+    inputs = parser.get_input_info()
+    outputs = parser.get_output_info()
 
-    # Print input information
-    print("Input information")
-    print("-" * 80)
-
-    for tensor in inputs:
+    def print_rknn_tensor(tensor: Dict):
         name = tensor.get("url", f"tensor_{tensor.get('tensor_id', 0)}")
-        dtype = tensor.get("dtype", {})
-
-        # Get dtype string
+        dtype = tensor.get("dtype", "")
+        # Handle dtype as dict or string
         if isinstance(dtype, dict):
-            dtype_str = get_dtype_str(dtype)
+            # Extract vx_type if available, otherwise use empty string
+            dtype_str = dtype.get("vx_type", "").strip() or dtype.get("qnt_type", "").strip() or "FLOAT"
         else:
-            dtype_str = str(dtype).upper()
+            dtype_str = str(dtype) if dtype else "FLOAT16"
+        dtype_str = dtype_str.upper()
 
         size = tensor.get("size", [])
         shape = format_shape(size)
         shape_str = "[" + ", ".join(f"'{s}'" if isinstance(s, str) else str(s) for s in shape) + "]"
 
-        # Build the base output string
-        output_parts = [f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str}']
+        print(f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str},')
 
-        # Add layout info from FlatBuffers
-        if "layout" in tensor and tensor["layout"]:
-            layout = tensor["layout"].upper()
-            layout_ori = tensor.get("layout_ori", "").upper()
-            if layout_ori and layout_ori != layout:
-                output_parts.append(f"layout {layout}(ori:{layout_ori})")
-            else:
-                output_parts.append(f"layout {layout}")
-
-        # Add quantization info from FlatBuffers
-        if "quant_info" in tensor:
-            quant = tensor["quant_info"]
-            if quant.get("qmethod") or quant.get("qtype"):
-                output_parts.append(f"quant {quant['qmethod']} {quant['qtype']}")
-
-        # Print the merged info on one line
-        print(", ".join(output_parts) + ",")
+    # Print input information
+    print("Input information")
+    print("-" * 80)
+    for tensor in inputs:
+        print_rknn_tensor(tensor)
 
     print()
 
     # Print output information
     print("Output information")
     print("-" * 80)
-
     for tensor in outputs:
-        name = tensor.get("url", f"tensor_{tensor.get('tensor_id', 0)}")
-        dtype = tensor.get("dtype", {})
-
-        # Get dtype string
-        if isinstance(dtype, dict):
-            dtype_str = get_dtype_str(dtype)
-        else:
-            dtype_str = str(dtype).upper()
-
-        size = tensor.get("size", [])
-        shape = format_shape(size)
-        shape_str = "[" + ", ".join(f"'{s}'" if isinstance(s, str) else str(s) for s in shape) + "]"
-
-        # Build the base output string
-        output_parts = [f'  ValueInfo "{name}": type {dtype_str}, shape {shape_str}']
-
-        # Add layout info from FlatBuffers
-        if "layout" in tensor and tensor["layout"]:
-            layout = tensor["layout"].upper()
-            layout_ori = tensor.get("layout_ori", "").upper()
-            if layout_ori and layout_ori != layout:
-                output_parts.append(f"layout {layout}(ori:{layout_ori})")
-            else:
-                output_parts.append(f"layout {layout}")
-
-        # Add quantization info from FlatBuffers
-        if "quant_info" in tensor:
-            quant = tensor["quant_info"]
-            if quant.get("qmethod") or quant.get("qtype"):
-                output_parts.append(f"quant {quant['qmethod']} {quant['qtype']}")
-
-        # Print the merged info on one line
-        print(", ".join(output_parts) + ",")
+        print_rknn_tensor(tensor)
 
 
 def print_model_summary(parser) -> None:
@@ -213,8 +165,8 @@ def main() -> int:
         # Print merged model information
         print_merged_model_info(rknn_parser)
 
-        # Print merged IO information
-        print_merged_io_info(rknn_parser)
+        # Print IO information
+        print_io_info(rknn_parser)
     except ValueError as e:
         print(f"Error: Failed to parse RKNN file: {e}", file=sys.stderr)
         return 1

@@ -19,6 +19,20 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+dependencies = [
+    "flatbuffers",
+    "graphviz",
+    "click",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "black",
+    "ruff",
+    "mypy",
+]
 
 [project.scripts]
 rknncli = "rknncli.cli:main"

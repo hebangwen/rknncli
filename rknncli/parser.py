@@ -53,7 +53,9 @@ class RKNNParser:
             padding = header_data[4:8]
 
             # Bytes 8-15: File format version (8 bytes, little-endian uint64)
-            file_format = struct.unpack("<Q", header_data[8:16])[0]
+            file_version = struct.unpack("<Q", header_data[8:16])[0]
+            if (file_version >> 8) != 0 and (file_version >> 8) != 0x10:
+                raise ValueError(f"unsupported rknn version {file_version}")
 
             # Bytes 16-23: File length (8 bytes, little-endian uint64)
             file_length = struct.unpack("<Q", header_data[16:24])[0]
@@ -61,22 +63,25 @@ class RKNNParser:
             self.header = {
                 "magic": magic,
                 "padding": padding,
-                "file_format": file_format,
+                "file_format": file_version,
                 "file_length": file_length,
             }
 
             # Calculate JSON offset and size
             real_header_size = self.HEADER_SIZE
-            if file_format <= 1:
+            if (file_version & 0xff) <= 1 and file_length > 0:
                 # only 3 uint64 for rknn-v1
                 real_header_size = 24
 
             # Parse FlatBuffers data if requested
             if parse_flatbuffers and file_length > 0:
-                fb_offset = real_header_size
                 fb_data = f.read(file_length)
                 if len(fb_data) == file_length:
-                    self.fb_model = Model.GetRootAs(fb_data, 0)
+                    if file_version == 6:
+                        self.fb_model = Model.GetRootAs(fb_data, 0)
+                    else:
+                        # RV1106 uses version 0x103, and cannot be parsed by flatbuffers
+                        self.fb_model = None
 
             # Read JSON model info
             file_size = self.file_path.stat().st_size
@@ -229,6 +234,25 @@ class RKNNParser:
         """Get target platform."""
         return self.model_info.get("target_platform", [])
 
+    def get_generator_info(self) -> Optional[Dict[str, Any]]:
+        """Get generator information from FlatBuffers.
+
+        This is a placeholder function for future use to extract
+        generator information from FlatBuffers schema.
+
+        Returns:
+            Dictionary containing generator information, or None if not available.
+        """
+        if not self.fb_model:
+            return None
+        fb_info = self.get_flatbuffers_info()
+        generator_info = fb_info.get("generator", None)
+        if generator_info is None:
+            return None
+        
+        fixed_str = generator_info.replace("'", '"')
+        return json.loads(fixed_str)
+
     def get_merged_io_info(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Get merged input/output information from both FlatBuffers and JSON.
 
@@ -262,7 +286,6 @@ class RKNNParser:
             except (ValueError, SyntaxError):
                 # Fallback: try JSON parse after fixing quotes
                 try:
-                    import json
                     fixed_str = fb_info["generator"].replace("'", '"')
                     gen_data = json.loads(fixed_str)
                     if isinstance(gen_data, dict):
