@@ -8,6 +8,10 @@ license = {text = "MIT"}
 authors = [
     {name = "rknncli"},
 ]
+maintainers = [
+    {name = "rknncli"},
+]
+keywords = ["rknn", "rockchip", "neural network", "model parser", "cli"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -18,6 +22,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
 ]
 dependencies = [
     "flatbuffers",
@@ -32,13 +39,21 @@ dev = [
     "black",
     "ruff",
     "mypy",
+    "build",
+    "twine",
 ]
 
 [project.scripts]
 rknncli = "rknncli.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/hebangwen/rknncli"
+Repository = "https://github.com/hebangwen/rknncli"
+Documentation = "https://github.com/hebangwen/rknncli#readme"
+Issues = "https://github.com/hebangwen/rknncli/issues"
+
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

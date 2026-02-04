@@ -1,0 +1,17 @@
+include README.md
+include LICENSE
+include MANIFEST.in
+include pyproject.toml
+include pytest.ini
+recursive-include src/ *.fbs
+recursive-include rknncli/ *.py
+recursive-include tests/ *.py
+recursive-include .github/ *.yml *.md
+recursive-include scripts/ *.sh
+exclude .venv/
+exclude .git/
+exclude __pycache__/
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude .DS_Store
