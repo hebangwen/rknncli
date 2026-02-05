@@ -7,6 +7,7 @@ from typing import List, Dict, Any
 import importlib.metadata as metadata
 
 from rknncli.parser import RKNNParser
+from graphviz.backend import ExecutableNotFound
 
 
 def format_shape(size: List) -> List:
@@ -147,6 +148,20 @@ def main() -> int:
         action="version",
         version=f"%(prog)s {metadata.version('rknncli')}",
     )
+    parser.add_argument(
+        "--graphviz",
+        dest="graphviz_path",
+        type=str,
+        default="",
+        help="Output SVG path for Graphviz visualization",
+    )
+    parser.add_argument(
+        "--graph-index",
+        dest="graph_index",
+        type=int,
+        default=0,
+        help="Graph index to visualize when multiple graphs exist",
+    )
 
     args = parser.parse_args()
 
@@ -168,8 +183,24 @@ def main() -> int:
 
         # Print IO information
         print_io_info(rknn_parser)
+
+        # Render Graphviz visualization if requested
+        if args.graphviz_path:
+            svg_path = rknn_parser.render_graphviz(
+                args.graphviz_path,
+                graph_index=args.graph_index,
+            )
+            print()
+            print(f"Graphviz SVG written to: {svg_path}")
     except ValueError as e:
         print(f"Error: Failed to parse RKNN file: {e}", file=sys.stderr)
+        return 1
+    except ExecutableNotFound:
+        print(
+            "Error: Graphviz executable not found. "
+            "Please install Graphviz and ensure 'dot' is in PATH.",
+            file=sys.stderr,
+        )
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

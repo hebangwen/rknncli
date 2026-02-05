@@ -7,6 +7,7 @@ A command line tool for parsing and displaying RKNN model information with FlatB
 - Parse both FlatBuffers binary data and JSON metadata from RKNN files
 - Extract detailed model information including format, compiler, runtime
 - Display input/output tensor information with layout (NCHW) and data type
+- Visualize FlatBuffers graph with Graphviz (SVG output)
 - Python 3.8+ compatible
 
 ## Installation
@@ -36,6 +37,14 @@ Example:
 ```bash
 rknncli assets/base-encoder.rknn
 ```
+
+Graph visualization:
+
+```bash
+rknncli assets/base-encoder.rknn --graphviz base-encoder.svg
+```
+
+Note: Graph visualization requires Graphviz installed and `dot` available in `PATH`.
 
 ## Output Format
 

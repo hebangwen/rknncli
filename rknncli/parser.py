@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Optional, Dict, List, Union, Tuple
 
 import flatbuffers
+from graphviz import Digraph
 from rknncli.schema.rknn.Model import Model
 from rknncli.schema.rknn.Graph import Graph
 from rknncli.schema.rknn.Tensor import Tensor
@@ -348,3 +349,143 @@ class RKNNParser:
             merged_outputs.append(merged_out)
 
         return merged_inputs, merged_outputs
+
+    def _get_graph(self, graph_index: int = 0) -> Graph:
+        """Get graph by index from FlatBuffers model."""
+        if not self.fb_model:
+            raise ValueError("FlatBuffers model data not available")
+        if graph_index < 0 or graph_index >= self.fb_model.GraphsLength():
+            raise ValueError(
+                f"Graph index out of range: {graph_index} (total {self.fb_model.GraphsLength()})"
+            )
+        graph = self.fb_model.Graphs(graph_index)
+        if not graph:
+            raise ValueError(f"Graph not found at index {graph_index}")
+        return graph
+
+    def build_graphviz_graph(self, graph_index: int = 0) -> Digraph:
+        """Build a Graphviz graph for the given FlatBuffers graph index."""
+        graph = self._get_graph(graph_index)
+
+        tensor_names: Dict[int, str] = {}
+        for i in range(graph.TensorsLength()):
+            tensor = graph.Tensors(i)
+            name = f"tensor_{i}"
+            if tensor and tensor.Name():
+                name = tensor.Name().decode("utf-8")
+            tensor_names[i] = name
+
+        input_tensors = {graph.Inputs(i) for i in range(graph.InputsLength())}
+        output_tensors = {graph.Outputs(i) for i in range(graph.OutputsLength())}
+
+        producers: Dict[int, int] = {}
+        for i in range(graph.NodesLength()):
+            node = graph.Nodes(i)
+            if not node:
+                continue
+            for j in range(node.OutputsLength()):
+                tensor_idx = node.Outputs(j)
+                producers[tensor_idx] = i
+
+        dot = Digraph(comment="RKNN Graph")
+        dot.attr(rankdir="LR")
+        dot.attr("node", shape="box", style="rounded,filled", fillcolor="#eef2ff")
+
+        for i in range(graph.NodesLength()):
+            node = graph.Nodes(i)
+            if not node:
+                continue
+            node_type = node.Type().decode("utf-8") if node.Type() else "Unknown"
+            node_name = node.Name().decode("utf-8") if node.Name() else ""
+            if node_name and node_type:
+                label = f"{node_name}\n{node_type}"
+            else:
+                label = node_name or node_type or f"node_{i}"
+            dot.node(f"n{i}", label=label)
+
+        input_nodes = set()
+        output_nodes = set()
+        const_nodes = set()
+
+        def ensure_input_node(tensor_idx: int) -> str:
+            node_id = f"in{tensor_idx}"
+            if node_id not in input_nodes:
+                label = f"input\n{tensor_names.get(tensor_idx, f'tensor_{tensor_idx}')}"
+                dot.node(
+                    node_id,
+                    label=label,
+                    shape="oval",
+                    style="filled",
+                    fillcolor="#d5f5e3",
+                )
+                input_nodes.add(node_id)
+            return node_id
+
+        def ensure_output_node(tensor_idx: int) -> str:
+            node_id = f"out{tensor_idx}"
+            if node_id not in output_nodes:
+                label = f"output\n{tensor_names.get(tensor_idx, f'tensor_{tensor_idx}')}"
+                dot.node(
+                    node_id,
+                    label=label,
+                    shape="oval",
+                    style="filled",
+                    fillcolor="#fdebd0",
+                )
+                output_nodes.add(node_id)
+            return node_id
+
+        def ensure_const_node(tensor_idx: int) -> str:
+            node_id = f"t{tensor_idx}"
+            if node_id not in const_nodes:
+                label = tensor_names.get(tensor_idx, f"tensor_{tensor_idx}")
+                dot.node(
+                    node_id,
+                    label=label,
+                    shape="ellipse",
+                    style="dashed",
+                    color="#999999",
+                )
+                const_nodes.add(node_id)
+            return node_id
+
+        for i in range(graph.NodesLength()):
+            node = graph.Nodes(i)
+            if not node:
+                continue
+            node_id = f"n{i}"
+
+            for j in range(node.InputsLength()):
+                tensor_idx = node.Inputs(j)
+                tensor_label = tensor_names.get(tensor_idx, f"tensor_{tensor_idx}")
+                if tensor_idx in producers:
+                    dot.edge(f"n{producers[tensor_idx]}", node_id, label=tensor_label)
+                elif tensor_idx in input_tensors:
+                    dot.edge(ensure_input_node(tensor_idx), node_id)
+                else:
+                    dot.edge(ensure_const_node(tensor_idx), node_id, label=tensor_label)
+
+        for tensor_idx in output_tensors:
+            producer = producers.get(tensor_idx)
+            out_node = ensure_output_node(tensor_idx)
+            if producer is not None:
+                dot.edge(f"n{producer}", out_node)
+            else:
+                dot.edge(ensure_const_node(tensor_idx), out_node)
+
+        return dot
+
+    def render_graphviz(self, output_path: Union[str, Path], graph_index: int = 0) -> Path:
+        """Render Graphviz SVG for the given graph index."""
+        output_path = Path(output_path)
+        if output_path.suffix.lower() != ".svg":
+            output_path = output_path.with_suffix(".svg")
+
+        if not output_path.parent.exists():
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        dot = self.build_graphviz_graph(graph_index)
+        dot.format = "svg"
+        output_base = output_path.with_suffix("")
+        rendered_path = dot.render(filename=str(output_base), cleanup=True)
+        return Path(rendered_path)

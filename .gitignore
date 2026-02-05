@@ -218,3 +218,5 @@ __marimo__/
 assets/*.rknn
 .vscode/
 .DS_Store
+
+*.svg
