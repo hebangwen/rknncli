@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from graphviz import Digraph
+from rknncli.graph import Graph as ComputeGraph
 from rknncli.parser import RKNNParser
 
 
@@ -203,15 +203,28 @@ class TestRKNNParser:
         if not parser.fb_model or parser.fb_model.GraphsLength() == 0:
             pytest.skip("FlatBuffers graph not available for this model")
 
-        def fake_render(self, filename=None, cleanup=False):
-            output = Path(filename).with_suffix(".svg")
+        def fake_render_svg(self, output_path):
+            output = Path(output_path).with_suffix(".svg")
             output.write_text("<svg></svg>", encoding="utf-8")
             return str(output)
 
-        monkeypatch.setattr(Digraph, "render", fake_render)
+        monkeypatch.setattr(ComputeGraph, "render_svg", fake_render_svg)
 
         output_path = tmp_path / "graph.svg"
         rendered = parser.render_graphviz(output_path)
 
         assert rendered.exists()
         assert rendered.suffix == ".svg"
+
+    def test_build_compute_graph(self, rknn_files):
+        """Test that parser builds compute graph instance."""
+        if not rknn_files:
+            pytest.skip("No .rknn files found in assets directory")
+
+        model_path = rknn_files[0]
+        parser = RKNNParser(model_path, parse_flatbuffers=True)
+        if not parser.fb_model or parser.fb_model.GraphsLength() == 0:
+            pytest.skip("FlatBuffers graph not available for this model")
+
+        graph = parser.build_graph()
+        assert isinstance(graph, ComputeGraph)
