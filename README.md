@@ -80,7 +80,7 @@ Output information
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/rknncli.git
+git clone https://github.com/hebangwen/rknncli.git
 cd rknncli
 
 # Install in development mode
