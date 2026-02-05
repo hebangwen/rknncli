@@ -1,6 +1,8 @@
 """Graph utilities for RKNN FlatBuffers visualization and shape inference."""
 
 from dataclasses import dataclass
+import io
+import struct
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from graphviz import Digraph
@@ -71,6 +73,24 @@ class Graph:
 
         return cls(nodes=nodes, tensors=tensors)
 
+    @classmethod
+    def from_vpmn(cls, buffer: bytes) -> "Graph":
+        """Create a Graph from a VPMN (OpenVX) buffer."""
+        reader = _VPMNReader(buffer)
+        nodes = reader.read_nodes()
+        node_infos: List[NodeInfo] = []
+        for i, node in enumerate(nodes):
+            node_infos.append(
+                NodeInfo(
+                    index=i,
+                    name=str(node.index) if node.index is not None else "",
+                    op_type=node.type,
+                    inputs=[],
+                    outputs=[],
+                )
+            )
+        return cls(nodes=node_infos, tensors={})
+
     def infer_shapes(self) -> Dict[int, Tuple[int, ...]]:
         """Populate shape info using tensor metadata from FlatBuffers."""
         inferred = {}
@@ -138,3 +158,70 @@ class Graph:
         dot = self.to_graphviz(use_shape_labels=True)
         dot.format = "svg"
         return dot.render(filename=output_path, cleanup=True)
+
+
+class _VPMNNode:
+    def __init__(self, node_type: str, index: Optional[int]):
+        self.type = node_type
+        self.index = index
+
+
+class _VPMNReader:
+    """Parser for VPMN (OpenVX) models."""
+
+    def __init__(self, buffer: bytes):
+        self._buffer = buffer
+        self._stream = io.BytesIO(buffer)
+        self._major = 0
+
+    def read_nodes(self) -> List[_VPMNNode]:
+        signature = self._stream.read(4)
+        if signature != b"VPMN":
+            raise ValueError("Invalid VPMN signature")
+        self._major = self._uint16()
+        # minor
+        self._uint16()
+        self._skip(4)
+        # name
+        self._string(64)
+        node_count = self._uint32()
+        if self._major > 3:
+            self._skip(296)
+        elif self._major > 1:
+            self._skip(288)
+        else:
+            self._skip(32)
+        # input/output offsets and sizes
+        self._uint32()
+        self._uint32()
+        self._uint32()
+        self._uint32()
+        node_offset = self._uint32()
+        self._uint32()
+        self._stream.seek(node_offset)
+        nodes: List[_VPMNNode] = []
+        for _ in range(node_count):
+            node_type = self._string(64)
+            index = self._uint32()
+            # c
+            self._uint32()
+            if self._major > 3:
+                self._uint32()
+            nodes.append(_VPMNNode(node_type=node_type, index=index))
+        return nodes
+
+    def _uint16(self) -> int:
+        return struct.unpack("<H", self._stream.read(2))[0]
+
+    def _uint32(self) -> int:
+        return struct.unpack("<I", self._stream.read(4))[0]
+
+    def _skip(self, length: int) -> None:
+        self._stream.seek(length, io.SEEK_CUR)
+
+    def _string(self, length: int) -> str:
+        data = self._stream.read(length)
+        end = data.find(b"\x00")
+        if end != -1:
+            data = data[:end]
+        return data.decode("ascii", errors="ignore")

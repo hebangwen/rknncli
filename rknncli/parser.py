@@ -31,6 +31,7 @@ class RKNNParser:
         self.header: Dict[str, Any] = {}
         self.model_info: Dict[str, Any] = {}
         self.fb_model: Optional[Model] = None
+        self.vpmn_graph: Optional[ComputeGraph] = None
         self._parse(parse_flatbuffers)
 
     def _parse(self, parse_flatbuffers: bool) -> None:
@@ -77,6 +78,7 @@ class RKNNParser:
 
             # Parse FlatBuffers data if requested
             if parse_flatbuffers and file_length > 0:
+                f.seek(real_header_size)
                 fb_data = f.read(file_length)
                 if len(fb_data) == file_length:
                     if file_version == 6:
@@ -84,6 +86,8 @@ class RKNNParser:
                     else:
                         # RV1106 uses version 0x103, and cannot be parsed by flatbuffers
                         self.fb_model = None
+                        if fb_data[:4] == b"VPMN":
+                            self.vpmn_graph = ComputeGraph.from_vpmn(fb_data)
 
             # Read JSON model info
             file_size = self.file_path.stat().st_size
@@ -366,8 +370,12 @@ class RKNNParser:
 
     def build_graph(self, graph_index: int = 0) -> ComputeGraph:
         """Build a compute graph for the given FlatBuffers graph index."""
-        fb_graph = self._get_graph(graph_index)
-        return ComputeGraph.from_flatbuffers(fb_graph)
+        if self.fb_model:
+            fb_graph = self._get_graph(graph_index)
+            return ComputeGraph.from_flatbuffers(fb_graph)
+        if self.vpmn_graph:
+            return self.vpmn_graph
+        raise ValueError("No graph data available for visualization")
 
     def build_graphviz_graph(self, graph_index: int = 0) -> Digraph:
         """Build a Graphviz graph for the given FlatBuffers graph index."""

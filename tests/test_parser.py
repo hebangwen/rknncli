@@ -228,3 +228,14 @@ class TestRKNNParser:
 
         graph = parser.build_graph()
         assert isinstance(graph, ComputeGraph)
+
+    def test_build_vpmn_graph(self, assets_dir):
+        """Test building a graph from VPMN-based RKNN model."""
+        model_path = assets_dir / "yolov5s_relu_rv1109_rv1126_out_opt.rknn"
+        if not model_path.exists():
+            pytest.skip(f"Model file {model_path} not found")
+
+        parser = RKNNParser(model_path, parse_flatbuffers=True)
+        graph = parser.build_graph()
+        assert isinstance(graph, ComputeGraph)
+        assert len(graph.nodes) > 0
