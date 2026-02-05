@@ -1,6 +1,6 @@
 [project]
 name = "rknncli"
-version = "0.3.1"
+version = "0.3.2"
 description = "A command line tool for parsing and displaying RKNN model information"
 readme = "README.md"
 requires-python = ">=3.8"

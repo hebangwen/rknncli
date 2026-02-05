@@ -179,6 +179,12 @@ def main() -> int:
 
         # Render Graphviz visualization if requested
         if args.draw_path:
+            if rknn_parser.vpmn_graph is not None:
+                print(
+                    "Warning: VPMN models only provide operator nodes without edge connections. "
+                    "The SVG will contain nodes only.",
+                    file=sys.stderr,
+                )
             svg_path = rknn_parser.render_graphviz(
                 args.draw_path,
             )
