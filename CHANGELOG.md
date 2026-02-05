@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Graph visualization layout to vertical orientation
 - Highlight `InputOperator` and `OutputOperator` compute nodes in SVG output
 
+## [0.3.1] - 2026-02-05
+
+### Added
+- Compute graph builder with shape inference
+- Shape-aware edge labels in SVG visualization
+
+### Changed
+- Parser now builds and renders graphs via `rknncli.graph.Graph`
+- Removed weight/bias nodes from visualization (compute nodes only)
+
 ## [0.2.0] - 2024-02-03
 
 ### Added
