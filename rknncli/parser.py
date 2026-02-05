@@ -375,9 +375,6 @@ class RKNNParser:
                 name = tensor.Name().decode("utf-8")
             tensor_names[i] = name
 
-        input_tensors = {graph.Inputs(i) for i in range(graph.InputsLength())}
-        output_tensors = {graph.Outputs(i) for i in range(graph.OutputsLength())}
-
         producers: Dict[int, int] = {}
         for i in range(graph.NodesLength()):
             node = graph.Nodes(i)
@@ -388,7 +385,7 @@ class RKNNParser:
                 producers[tensor_idx] = i
 
         dot = Digraph(comment="RKNN Graph")
-        dot.attr(rankdir="LR")
+        dot.attr(rankdir="TB")
         dot.attr("node", shape="box", style="rounded,filled", fillcolor="#eef2ff")
 
         for i in range(graph.NodesLength()):
@@ -401,53 +398,16 @@ class RKNNParser:
                 label = f"{node_name}\n{node_type}"
             else:
                 label = node_name or node_type or f"node_{i}"
-            dot.node(f"n{i}", label=label)
-
-        input_nodes = set()
-        output_nodes = set()
-        const_nodes = set()
-
-        def ensure_input_node(tensor_idx: int) -> str:
-            node_id = f"in{tensor_idx}"
-            if node_id not in input_nodes:
-                label = f"input\n{tensor_names.get(tensor_idx, f'tensor_{tensor_idx}')}"
+            node_id = f"n{i}"
+            if node_type in {"InputOperator", "OutputOperator"}:
                 dot.node(
                     node_id,
                     label=label,
-                    shape="oval",
-                    style="filled",
-                    fillcolor="#d5f5e3",
+                    style="rounded,filled",
+                    fillcolor="#fdebd0" if node_type == "OutputOperator" else "#d5f5e3",
                 )
-                input_nodes.add(node_id)
-            return node_id
-
-        def ensure_output_node(tensor_idx: int) -> str:
-            node_id = f"out{tensor_idx}"
-            if node_id not in output_nodes:
-                label = f"output\n{tensor_names.get(tensor_idx, f'tensor_{tensor_idx}')}"
-                dot.node(
-                    node_id,
-                    label=label,
-                    shape="oval",
-                    style="filled",
-                    fillcolor="#fdebd0",
-                )
-                output_nodes.add(node_id)
-            return node_id
-
-        def ensure_const_node(tensor_idx: int) -> str:
-            node_id = f"t{tensor_idx}"
-            if node_id not in const_nodes:
-                label = tensor_names.get(tensor_idx, f"tensor_{tensor_idx}")
-                dot.node(
-                    node_id,
-                    label=label,
-                    shape="ellipse",
-                    style="dashed",
-                    color="#999999",
-                )
-                const_nodes.add(node_id)
-            return node_id
+            else:
+                dot.node(node_id, label=label)
 
         for i in range(graph.NodesLength()):
             node = graph.Nodes(i)
@@ -460,18 +420,6 @@ class RKNNParser:
                 tensor_label = tensor_names.get(tensor_idx, f"tensor_{tensor_idx}")
                 if tensor_idx in producers:
                     dot.edge(f"n{producers[tensor_idx]}", node_id, label=tensor_label)
-                elif tensor_idx in input_tensors:
-                    dot.edge(ensure_input_node(tensor_idx), node_id)
-                else:
-                    dot.edge(ensure_const_node(tensor_idx), node_id, label=tensor_label)
-
-        for tensor_idx in output_tensors:
-            producer = producers.get(tensor_idx)
-            out_node = ensure_output_node(tensor_idx)
-            if producer is not None:
-                dot.edge(f"n{producer}", out_node)
-            else:
-                dot.edge(ensure_const_node(tensor_idx), out_node)
 
         return dot
 
