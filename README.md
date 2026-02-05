@@ -41,7 +41,7 @@ rknncli assets/base-encoder.rknn
 Graph visualization:
 
 ```bash
-rknncli assets/base-encoder.rknn --graphviz base-encoder.svg
+rknncli assets/base-encoder.rknn --draw base-encoder.svg
 ```
 
 Note: Graph visualization requires Graphviz installed and `dot` available in `PATH`.

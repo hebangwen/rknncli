@@ -2,6 +2,8 @@
 
 import pytest
 from pathlib import Path
+
+from graphviz import Digraph
 from rknncli.parser import RKNNParser
 
 
@@ -190,3 +192,26 @@ class TestRKNNParser:
             assert isinstance(model_name, str)
             assert isinstance(version, str)
             assert isinstance(platforms, list)
+
+    def test_render_graphviz_svg(self, rknn_files, tmp_path, monkeypatch):
+        """Test that Graphviz SVG rendering writes output."""
+        if not rknn_files:
+            pytest.skip("No .rknn files found in assets directory")
+
+        model_path = rknn_files[0]
+        parser = RKNNParser(model_path, parse_flatbuffers=True)
+        if not parser.fb_model or parser.fb_model.GraphsLength() == 0:
+            pytest.skip("FlatBuffers graph not available for this model")
+
+        def fake_render(self, filename=None, cleanup=False):
+            output = Path(filename).with_suffix(".svg")
+            output.write_text("<svg></svg>", encoding="utf-8")
+            return str(output)
+
+        monkeypatch.setattr(Digraph, "render", fake_render)
+
+        output_path = tmp_path / "graph.svg"
+        rendered = parser.render_graphviz(output_path)
+
+        assert rendered.exists()
+        assert rendered.suffix == ".svg"

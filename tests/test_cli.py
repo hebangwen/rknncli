@@ -28,6 +28,8 @@ class TestRKNNCLI:
         )
         assert result.returncode == 0
         assert "A command line tool for parsing and displaying RKNN model information" in result.stdout
+        assert "--draw" in result.stdout
+        assert "--graphviz" not in result.stdout
 
     def test_cli_version(self):
         """Test that CLI shows version information."""

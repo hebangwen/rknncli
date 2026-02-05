@@ -149,18 +149,11 @@ def main() -> int:
         version=f"%(prog)s {metadata.version('rknncli')}",
     )
     parser.add_argument(
-        "--graphviz",
-        dest="graphviz_path",
+        "--draw",
+        dest="draw_path",
         type=str,
         default="",
         help="Output SVG path for Graphviz visualization",
-    )
-    parser.add_argument(
-        "--graph-index",
-        dest="graph_index",
-        type=int,
-        default=0,
-        help="Graph index to visualize when multiple graphs exist",
     )
 
     args = parser.parse_args()
@@ -185,10 +178,9 @@ def main() -> int:
         print_io_info(rknn_parser)
 
         # Render Graphviz visualization if requested
-        if args.graphviz_path:
+        if args.draw_path:
             svg_path = rknn_parser.render_graphviz(
-                args.graphviz_path,
-                graph_index=args.graph_index,
+                args.draw_path,
             )
             print()
             print(f"Graphviz SVG written to: {svg_path}")
