@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Parser now builds and renders graphs via `rknncli.graph.Graph`
 - Removed weight/bias nodes from visualization (compute nodes only)
 
+## [0.3.3] - 2026-02-06
+
+### Added
+- JSON model parsing for extracted metadata files
+- Graph visualization from JSON connections with shape-aware labels
+
+### Changed
+- RKNN header probing now restores stream position to avoid parse errors
+
 ## [0.2.0] - 2024-02-03
 
 ### Added
