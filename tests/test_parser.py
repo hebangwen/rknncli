@@ -239,3 +239,14 @@ class TestRKNNParser:
         graph = parser.build_graph()
         assert isinstance(graph, ComputeGraph)
         assert len(graph.nodes) > 0
+
+    def test_build_json_graph(self, assets_dir):
+        """Test building a graph from extracted JSON model."""
+        model_path = assets_dir / "test.json"
+        if not model_path.exists():
+            pytest.skip(f"Model file {model_path} not found")
+
+        parser = RKNNParser(model_path, parse_flatbuffers=False)
+        graph = parser.build_graph()
+        assert isinstance(graph, ComputeGraph)
+        assert len(graph.nodes) > 0

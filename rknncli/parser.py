@@ -41,6 +41,22 @@ class RKNNParser:
             parse_flatbuffers: Whether to parse FlatBuffers data.
         """
         with open(self.file_path, "rb") as f:
+            probe = f.read(4)
+            if probe not in (self.MAGIC_NUMBER,):
+                f.seek(0)
+                try:
+                    self.model_info = json.load(f)
+                    self.header = {
+                        "magic": b"JSON",
+                        "padding": b"",
+                        "file_format": 0,
+                        "file_length": 0,
+                    }
+                    return
+                except json.JSONDecodeError:
+                    f.seek(0)
+            else:
+                f.seek(0)
             # Read header
             header_data = f.read(self.HEADER_SIZE)
             if len(header_data) < self.HEADER_SIZE:
@@ -375,6 +391,8 @@ class RKNNParser:
             return ComputeGraph.from_flatbuffers(fb_graph)
         if self.vpmn_graph:
             return self.vpmn_graph
+        if self.model_info and "nodes" in self.model_info and "connection" in self.model_info:
+            return ComputeGraph.from_json(self.model_info)
         raise ValueError("No graph data available for visualization")
 
     def build_graphviz_graph(self, graph_index: int = 0) -> Digraph:

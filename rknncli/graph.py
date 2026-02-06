@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import io
 import struct
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Any
 
 from graphviz import Digraph
 
@@ -72,6 +72,62 @@ class Graph:
                     outputs=outputs,
                 )
             )
+
+        return cls(nodes=nodes, tensors=tensors)
+
+    @classmethod
+    def from_json(cls, model: Dict[str, Any]) -> "Graph":
+        """Create a Graph from a JSON model description."""
+        nodes_data = model.get("nodes", [])
+        nodes: List[NodeInfo] = []
+        for i, node in enumerate(nodes_data):
+            nodes.append(
+                NodeInfo(
+                    index=i,
+                    name=node.get("name", ""),
+                    op_type=node.get("op", "Unknown"),
+                    inputs=[],
+                    outputs=[],
+                )
+            )
+
+        shape_map: Dict[Tuple[int, int], Tuple[int, ...]] = {}
+        for tensor in model.get("virtual_tensor", []):
+            if "size" in tensor and "node_id" in tensor and "output_port" in tensor:
+                shape_map[(tensor["node_id"], tensor["output_port"])] = tuple(tensor["size"])
+
+        tensors: Dict[int, TensorInfo] = {}
+        tensor_index: Dict[Tuple[int, int], int] = {}
+
+        def get_tensor_index(node_id: int, output_port: int) -> int:
+            key = (node_id, output_port)
+            if key not in tensor_index:
+                idx = len(tensor_index)
+                tensor_index[key] = idx
+                shape = shape_map.get(key, ())
+                tensors[idx] = TensorInfo(
+                    index=idx,
+                    name=f"n{node_id}:{output_port}",
+                    shape=shape,
+                )
+            return tensor_index[key]
+
+        for connection in model.get("connection", []):
+            if connection.get("left") != "input":
+                continue
+            target_node = connection.get("node_id")
+            right_node = connection.get("right_node")
+            if right_node is None or target_node is None:
+                continue
+            producer_id = right_node.get("node_id")
+            producer_tensor_id = right_node.get("tensor_id")
+            if producer_id is None or producer_tensor_id is None:
+                continue
+            if target_node >= len(nodes) or producer_id >= len(nodes):
+                continue
+            tensor_idx = get_tensor_index(producer_id, producer_tensor_id)
+            nodes[target_node].inputs.append(tensor_idx)
+            nodes[producer_id].outputs.append(tensor_idx)
 
         return cls(nodes=nodes, tensors=tensors)
 
