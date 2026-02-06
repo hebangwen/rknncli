@@ -7,6 +7,8 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from graphviz import Digraph
 
+from rknncli import metadata
+
 from rknncli.schema.rknn.Graph import Graph as FBGraph
 
 
@@ -104,20 +106,17 @@ class Graph:
         """Build a Graphviz Digraph for this Graph."""
         dot = Digraph(comment="RKNN Graph")
         dot.attr(rankdir="TB")
-        dot.attr("node", shape="box", style="rounded,filled", fillcolor="#eef2ff")
+        dot.attr("node", shape="box", style="rounded,filled")
 
         for node in self.nodes:
             label = self._format_node_label(node)
             node_id = f"n{node.index}"
-            if node.op_type in {"InputOperator", "OutputOperator"}:
-                dot.node(
-                    node_id,
-                    label=label,
-                    style="rounded,filled",
-                    fillcolor="#fdebd0" if node.op_type == "OutputOperator" else "#d5f5e3",
-                )
-            else:
-                dot.node(node_id, label=label)
+            dot.node(
+                node_id,
+                label=label,
+                style="rounded,filled",
+                fillcolor=metadata.get_node_color(node.op_type),
+            )
 
         for node in self.nodes:
             node_id = f"n{node.index}"
