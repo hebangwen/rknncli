@@ -215,7 +215,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-assets/*.rknn
+assets/
 .vscode/
 .DS_Store
 
